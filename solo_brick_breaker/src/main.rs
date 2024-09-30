@@ -10,40 +10,63 @@ use sdl2::video::Window;
 use sdl2::Sdl;
 use rand::Rng;
 
+struct Ball {
+    rect : Rect,
+    vitesse : Point
+}
 
+const WINDOW_WIDTH: i32 = 600;
+const WINDOW_HEIGHT: i32 = 600;
+const BALL_SIZE: u32 = 20;
+const N : usize = 10;
+
+impl Ball {
+    fn new(x: i32, y: i32, vx: i32, vy: i32) -> Self {
+        Ball {
+            rect: Rect::new(x, y, BALL_SIZE, BALL_SIZE),
+            vitesse: Point::new(vx, vy),
+        }
+    }
+    
+    fn shift(&mut self) {
+        let top_left_corner = self.rect.top_left();
+        let bottom_right_corner = self.rect.bottom_right();
+
+        if top_left_corner.x <= 0 ||bottom_right_corner.x >= WINDOW_WIDTH {
+            self.vitesse.x = -self.vitesse.x;
+        }
+        if top_left_corner.y <= 0 || bottom_right_corner.y >= WINDOW_HEIGHT{
+            self.vitesse.y = -self.vitesse.y;
+        }
+
+        self.rect.set_x(self.rect.x + self.vitesse.x); 
+        self.rect.set_y(self.rect.y + self.vitesse.y);
+    }
+}
 
 fn main() {
 
     let sdl_context: Sdl = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
-    let width: i32 = 600;
-    let height: i32 = 600;
-
     let window: Window = video_subsystem
-        .window("Mon Jeu", width as u32, height as u32)
+        .window("Brick Breaker", WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32)
         .position_centered()
         .build()
         .unwrap();
     
     let mut canvas = window.into_canvas().build().unwrap();
 
-    const N : usize = 10;
-
-    let mut rects = [Rect::new(1,1,90,90);N];
-    let mut vitesses = [Point::new(0,0);N];
-
     let mut rng = rand::thread_rng();
-
+    let mut balls = Vec::new();
     
-    for i in 0..N {
-        rects[i].reposition(Point::new(rng.gen_range(1..(width-100)),rng.gen_range(1..(height-100))));
-        vitesses[i] = Point::new(rng.gen_range(-1..=1),rng.gen_range(-1..=1));
-    }
-
     let _image_context = image::init(image::InitFlag::PNG);
 
-    // Charger l'image
+    for _ in 0..N {
+        let tmp = Ball::new(290,579,rng.gen_range(-5..=5),rng.gen_range(-5..=5));
+        balls.push(tmp);
+    }
+
     let texture_creator = canvas.texture_creator();
     let texture = texture_creator
         .load_texture(Path::new("white-circle.png"))
@@ -61,30 +84,13 @@ fn main() {
 
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
-        canvas.set_draw_color(Color::RGB(255, 0, 0));
             
-        for i in 0..rects.len() {
-            let top_left_corner = rects[i].top_left();
-            let bottom_right_corner = rects[i].bottom_right();
-
-            if top_left_corner.x == 0 ||bottom_right_corner.x == width {
-                vitesses[i].x = -vitesses[i].x;
-            }
-            if top_left_corner.y == 0 || bottom_right_corner.y == height{
-                vitesses[i].y = -vitesses[i].y;
-            }
-
-            rects[i].set_x(rects[i].x + vitesses[i].x); 
-            rects[i].set_y(rects[i].y + vitesses[i].y); 
-
-            canvas.copy(&texture, None,rects[i] ).unwrap(); // Affiche l'image
-    
-
+        for ball in &mut balls {
+            ball.shift();
+            canvas.copy(&texture, None,ball.rect).unwrap();
         }
         
         canvas.present();
-        std::thread::sleep(Duration::from_millis(3));
+        std::thread::sleep(Duration::from_millis(10));
     }
-    
 }
-
