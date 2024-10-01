@@ -5,4 +5,4 @@ edition = "2021"
 
 [dependencies]
 sdl2 = { version = "0.37", features = ["image","ttf"] }
-rand = "0.8"
+nalgebra = "0.29"

@@ -1,5 +1,5 @@
 # Ignorer les fichiers générés par Cargo
-./target/
+target/
 **/*.rs.bk
 
 # Ignorer les fichiers de configuration
