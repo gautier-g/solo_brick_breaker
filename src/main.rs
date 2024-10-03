@@ -2,14 +2,14 @@ mod utils;
 
 use sdl2::image::{self, LoadTexture};
 use sdl2::event::Event;
-use sdl2::rect::Rect;
 use sdl2::pixels::Color;
 use sdl2::video::Window;
+use sdl2::render::Canvas;
 use sdl2::Sdl;
 use sdl2::keyboard::Keycode;
 use std::path::Path;
 use std::time::Duration;
-use crate::utils::{WINDOW_WIDTH, WINDOW_HEIGHT, BALL_SIZE, N, VITESSE, Angle,Ball};
+use crate::utils::{WINDOW_WIDTH, WINDOW_HEIGHT, BALL_SIZE, N, VITESSE, Angle,Ball,Brick};
 
 fn main() {
     let mut angle = Angle::new();
@@ -41,7 +41,16 @@ fn main() {
     let mut frame = 0;
     let mut balls_in_round: i32 = 0;
 
-    let rects = [Rect::new(100,100,100,100),Rect::new(500,300,100,100)];
+    let mut bricks_store: Vec<Brick> = Vec::new();
+    bricks_store.push(Brick::new(0, 0, 100));
+    bricks_store.push(Brick::new(1, 4, 100));
+    bricks_store.push(Brick::new(1, 1, 100));
+
+    let mut bricks: Vec<&mut Brick> = Vec::new();
+    
+    for brick in bricks_store.iter_mut() {
+        bricks.push(brick);
+    }
 
     'running: loop {
         for event in event_pump.poll_iter() {
@@ -61,20 +70,18 @@ fn main() {
         }
 
         // Lancement des balles au fur et a mesure
-        if round && balls_in_round < N && frame % VITESSE== 0 {
+        if round && balls_in_round < N && frame % VITESSE == 0 {
             balls.push(Ball::new((WINDOW_WIDTH - (BALL_SIZE as i32)) as f32 / 2.0, (WINDOW_HEIGHT - (BALL_SIZE as i32)) as f32,
              angle.cos() as f32, -angle.sin() as f32));
             balls_in_round+=1;
             if balls_in_round == N-1 {balls_in_round+=1;};
         }        
 
-        canvas.set_draw_color(Color::RGB(0, 0, 0));
-        canvas.clear();
-        canvas.set_draw_color(Color::RGB(255, 255, 255));
+        
 
         // Deplacement des balles
         for i in 0..balls.len() {
-            if balls[i].collision(&rects) == -1 {
+            if balls[i].collision(&mut bricks) == -1 {
                 index.push(i);  
             }
         }
@@ -84,34 +91,63 @@ fn main() {
             balls.remove(*i);
         }
         index.clear();
+     
+        
         
         // Si il n'y a plus de balle le round fini
         if balls.is_empty() { round = false; balls_in_round = 0;};
-    
-        // Affichage de debut de round
-        if !round {
-            canvas.draw_line(
-                (WINDOW_WIDTH / 2, WINDOW_HEIGHT),
-                (
-                    (WINDOW_WIDTH as f64 / 2.0 + 200.0 * angle.cos()) as i32,
-                    (WINDOW_HEIGHT as f64 - 200.0 * angle.sin()) as i32,
-                ),
-            ).unwrap();
-            canvas.fill_rects(&rects).unwrap();
-            canvas.present();
-        }
 
-        // Affichage de round : deplacement des balles toutes les ieme frames pour simuler de la vitesse
-        if frame % VITESSE == 0 && round {
-            for i in 0..balls.len() {
-                canvas.copy(&texture, None, balls[i].rect()).unwrap();
+        if frame % VITESSE == 0 {
+            canvas.set_draw_color(Color::RGB(0, 0, 0));
+            canvas.clear();
+            canvas.set_draw_color(Color::RGB(255, 255, 255));
+
+            // Affichage de debut de round
+            if !round {
+                canvas.draw_line(
+                    (WINDOW_WIDTH / 2, WINDOW_HEIGHT),
+                    (
+                        (WINDOW_WIDTH as f64 / 2.0 + 200.0 * angle.cos()) as i32,
+                        (WINDOW_HEIGHT as f64 - 200.0 * angle.sin()) as i32,
+                    ),
+                ).unwrap();
+                
             }
-            canvas.fill_rects(&rects).unwrap();
+
+            // Affichage de round : deplacement des balles toutes les ieme frames pour simuler de la vitesse
+            if round {
+                
+                for i in 0..bricks.len() {
+                    if bricks[i].life <= 0 {
+                        index.push(i);  
+                    }
+                }
+
+                // Les balles en dehors du jeu sont retirées
+                for i in &index {
+                    bricks.remove(*i);
+                }
+                index.clear();
+
+
+                for i in 0..balls.len() {
+                    canvas.copy(&texture, None, balls[i].rect()).unwrap();
+                }
+
+            }
+
+            draw_bricks(&mut canvas, &mut bricks);
             canvas.present();
-            std::thread::sleep(Duration::from_millis(15));
+            std::thread::sleep(Duration::from_millis(10));
+
         }
-        
         frame = (frame + 1)%VITESSE;
         
+    }
+}
+
+fn draw_bricks(canvas: &mut Canvas<Window>, bricks: &mut Vec<&mut Brick>) {
+    for brick in bricks {
+        canvas.fill_rect(brick.rect).unwrap();
     }
 }

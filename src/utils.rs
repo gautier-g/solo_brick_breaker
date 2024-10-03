@@ -9,8 +9,9 @@ use std::f64::consts::PI;
 pub const WINDOW_WIDTH: i32 = 600;
 pub const WINDOW_HEIGHT: i32 = 600;
 pub const BALL_SIZE: u32 = 20;
+pub const BRICK_SIZE: u32 = 100;
 pub const N: i32 = 10;
-pub const VITESSE : i32= 17;
+pub const VITESSE : i32= 15;
 
 // Déclarations des structures
 pub struct Angle {
@@ -52,13 +53,15 @@ impl Ball {
         }
     }
 
-    pub fn collision(&mut self,bricks : &[Rect]) -> i32 {
+    pub fn collision(&mut self,bricks : &mut Vec<&mut Brick>) -> i32 {
         if self.pos.y >= WINDOW_WIDTH as f32 {return -1}
+
         if self.pos.x + self.vitesse.x <= 0.0 || self.pos.x + self.vitesse.x >= (WINDOW_WIDTH as f32 - BALL_SIZE as f32) {
             self.vitesse.x = -self.vitesse.x;
             self.shift();
             return 0
         }
+
         if self.pos.y + self.vitesse.y <= 0.0 {
             self.vitesse.y = -self.vitesse.y;
             self.shift();
@@ -66,20 +69,17 @@ impl Ball {
         }
 
         let tmp = Rect::new((self.pos.x + self.vitesse.x) as i32,(self.pos.y + self.vitesse.y) as i32,BALL_SIZE,BALL_SIZE);
-        for brick in bricks {
-            if tmp.has_intersection(*brick) {
-                
-                if brick.x as f32 > self.pos.x || self.pos.x > brick.x as f32 + brick.width() as f32 {
-                    self.vitesse.x = -self.vitesse.x;
-                    self.shift();
-                    return 0
+        for brick in bricks.iter_mut() {
+            if tmp.has_intersection(brick.rect) {
+                brick.life-=1;
+                if brick.rect.x as f32 > self.pos.x || self.pos.x > brick.rect.x as f32 + brick.rect.width() as f32 {
+                    self.vitesse.x = -self.vitesse.x; 
                 }
                 else {
                     self.vitesse.y = -self.vitesse.y;
-                    self.shift();
-                    return 0
                 }
-
+                self.shift();
+                return 0
             }
         }
         self.shift();
@@ -93,5 +93,16 @@ impl Ball {
 
     pub fn rect(&self) -> Rect {
         Rect::new(self.pos.x as i32, self.pos.y as i32,BALL_SIZE,BALL_SIZE)
+    }
+}
+
+pub struct Brick {
+    pub rect : Rect,
+    pub life : i32
+}
+
+impl Brick {
+    pub fn new(i:i32,j:i32,life:i32) -> Self {
+        Brick {rect:Rect::new(i*BRICK_SIZE as i32,j*BRICK_SIZE as i32,BRICK_SIZE,BRICK_SIZE),life}
     }
 }
