@@ -144,12 +144,96 @@ impl<'a> Game<'a> {
             dst: Some(rect!(225, 525, 150, 50))
         };
 
+        let pause_button = DrawnContent {
+            displayed_in_game: true,
+            displayed_in_pause: false,
+            name: Some(String::from_str("pause_button").unwrap()),
+            rect: rect!(420, 15, 150, 40),
+            color: Color::RGB(255, 255, 255)
+        };
+
+        let pause_surface = font
+            .render("Pause")
+            .blended(Color::RGBA(0, 0, 0, 255))
+            .map_err(|e| e.to_string()).unwrap();
+
+        let pause_texture = texture_creator
+            .create_texture_from_surface(&pause_surface)
+            .map_err(|e| e.to_string()).unwrap();
+
+        let pause_textured_content = TexturedContent {
+            displayed_in_game: true,
+            displayed_in_pause: false,
+            name: None,
+            texture: pause_texture,
+            src: None,
+            dst: Some(rect!(425, 20, 140, 40))
+        };
+
+        let resume_button = DrawnContent {
+            displayed_in_game: true,
+            displayed_in_pause: true,
+            name: Some(String::from_str("pause_resume").unwrap()),
+            rect: rect!(200, 200, 200, 100),
+            color: Color::RGB(255, 255, 255)
+        };
+
+        let resume_surface = font
+            .render("Resume")
+            .blended(Color::RGBA(0, 0, 0, 255))
+            .map_err(|e| e.to_string()).unwrap();
+
+        let resume_texture = texture_creator
+            .create_texture_from_surface(&resume_surface)
+            .map_err(|e| e.to_string()).unwrap();
+
+        let resume_textured_content = TexturedContent {
+            displayed_in_game: true,
+            displayed_in_pause: true,
+            name: None,
+            texture: resume_texture,
+            src: None,
+            dst: Some(rect!(225, 225, 150, 50))
+        };
+
+        let giveup_button = DrawnContent {
+            displayed_in_game: true,
+            displayed_in_pause: true,
+            name: Some(String::from_str("pause_giveup").unwrap()),
+            rect: rect!(200, 350, 200, 100),
+            color: Color::RGB(255, 255, 255)
+        };
+
+        let giveup_surface = font
+            .render("Give up")
+            .blended(Color::RGBA(0, 0, 0, 255))
+            .map_err(|e| e.to_string()).unwrap();
+
+        let giveup_texture = texture_creator
+            .create_texture_from_surface(&giveup_surface)
+            .map_err(|e| e.to_string()).unwrap();
+
+        let giveup_textured_content = TexturedContent {
+            displayed_in_game: true,
+            displayed_in_pause: true,
+            name: None,
+            texture: giveup_texture,
+            src: None,
+            dst: Some(rect!(225, 375, 150, 50))
+        };
+
         self.textured.push(start_textured_content);
         self.textured.push(settings_textured_content);
         self.textured.push(credits_textured_content);
+        self.textured.push(pause_textured_content);
+        self.textured.push(resume_textured_content);
+        self.textured.push(giveup_textured_content);
         self.drawn.push(start_button);
         self.drawn.push(settings_button);
         self.drawn.push(credits_button);
+        self.drawn.push(pause_button);
+        self.drawn.push(resume_button);
+        self.drawn.push(giveup_button);
 
         let left_bar_outside = DrawnContent {
             displayed_in_game: true,
@@ -282,6 +366,9 @@ impl<'a> Game<'a> {
     }
 
     pub(crate) fn display_content(&self, mut can: Canvas<Window>) -> Canvas<Window> {
+        can.set_draw_color(Color::RGB(0,0,0));
+        can.clear();
+
         if self.started {
             if self.paused {
                 for content in self.drawn.iter() {
@@ -329,6 +416,27 @@ impl<'a> Game<'a> {
 
         can.present();
         can
+    }
+
+    pub(crate) fn act_drawn(mut self, x: i32, y: i32) -> Game<'a> {
+        for content in self.drawn.iter() {
+            if (content.rect.x() <= x) && (x <= content.rect.x() + content.rect.width() as i32) && (content.rect.y() <= y) && (y <= content.rect.y() + content.rect.height() as i32) {
+                if content.name == Some(String::from_str("menu_start").unwrap()) {
+                    self.started = true;
+                }
+                if content.name == Some(String::from_str("pause_button").unwrap()) {
+                    self.paused = true;
+                }
+                if content.name == Some(String::from_str("pause_resume").unwrap()) {
+                    self.paused = false;
+                }
+                if content.name == Some(String::from_str("pause_giveup").unwrap()) {
+                    self.started = false;
+                    self.paused = false;
+                }
+            }
+        }
+        self
     }
 }
 
