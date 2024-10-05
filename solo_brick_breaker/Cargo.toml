@@ -1,5 +1,5 @@
 [package]
-name = "solo_brick_breaker"
+name = "Brick_Breaker"
 version = "0.1.0"
 edition = "2021"
 
