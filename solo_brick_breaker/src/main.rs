@@ -23,8 +23,8 @@ fn main() {
     let ttf_context = sdl2::ttf::init().map_err(|e| e.to_string()).unwrap();
     let window = video_subsystem.window("CONCRETE ANNIHILATOR", SCREEN_WIDTH, SCREEN_HEIGHT).position_centered().build().unwrap();
 
-    let width: i32 = 600;
-    let height: i32 = 600;
+    /*let width: i32 = 600;
+    let height: i32 = 800;*/
     
     let mut canvas = window.into_canvas().build().unwrap();
     let texture_creator = canvas.texture_creator();
@@ -38,7 +38,7 @@ fn main() {
 
     game.load_content(&ttf_context, &texture_creator);
 
-    const N : usize = 10;
+    /*const N : usize = 10;
 
     let mut rects = [Rect::new(1,1,90,90);N];
     let mut vitesses = [Point::new(0,0);N];
@@ -57,7 +57,7 @@ fn main() {
     let texture_creator = canvas.texture_creator();
     let texture = texture_creator
         .load_texture(Path::new("white-circle.png"))
-        .unwrap();
+        .unwrap();*/
 
     let mut event_pump = sdl_context.event_pump().unwrap();
 
@@ -65,11 +65,12 @@ fn main() {
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. } => break 'running,
+                Event::MouseButtonDown { timestamp, window_id, which, mouse_btn, clicks, x, y } => game = game.act_drawn(x, y),
                 _ => {}
             }
         }
 
-        canvas.set_draw_color(Color::RGB(0, 0, 0));
+        /*canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
         canvas.set_draw_color(Color::RGB(255, 0, 0));
             
@@ -88,7 +89,7 @@ fn main() {
             rects[i].set_y(rects[i].y + vitesses[i].y); 
 
             canvas.copy(&texture, None,rects[i] ).unwrap(); // Affiche l'image
-        }
+        }*/
         canvas = game.display_content(canvas);
         ::std::thread::sleep(Duration::from_millis(16));
     }
