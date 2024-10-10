@@ -44,7 +44,49 @@ pub(crate) struct Game<'a> {
 }
 
 impl<'a> Game<'a> {
-    pub (crate) fn load_content(&mut self, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>, level : String) -> Vec<Brick> {
+
+    pub fn load_bricks(&self,ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>,level : String) -> Vec<Brick<'a>> {
+
+        let font = ttf_context.load_font("fonts/Marlboro.ttf", 128).unwrap();
+
+        let file = File::open(level).unwrap();
+        let reader = io::BufReader::new(file);
+    
+        let mut bricks:Vec<Brick> = Vec::new();
+        let mut j= 0;
+
+        for line in reader.lines() {
+            match line {
+                Ok(content) => {                
+                    let tmp : Vec<&str> =  content.split(" ").collect();
+                    for i in 0..tmp.len() {
+                        match tmp[i].parse::<u32>() {
+                            Ok(0) => {},
+                            Ok(nombre) => {
+                                let brick_surface = font
+                                    .render(tmp[i].to_string().as_str())
+                                    .blended(Color::RGBA(0, 255, 0, 255))
+                                    .map_err(|e| e.to_string()).unwrap();
+
+                                let brick_texture = texture_creator
+                                    .create_texture_from_surface(&brick_surface)
+                                    .map_err(|e| e.to_string()).unwrap();
+
+                                                             
+                                bricks.push(Brick::new(i as i32,j as i32 , nombre as i32,brick_texture));
+                            },
+                            _ => {}, 
+                        }
+                    }
+                }
+                _ => {}, 
+            }
+            j = j + 1;
+        }
+        bricks
+    }
+
+    pub (crate) fn load_content(&mut self, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>){
         let font = ttf_context.load_font("fonts/Marlboro.ttf", 128).unwrap();
 
         let surface = font
@@ -295,31 +337,7 @@ impl<'a> Game<'a> {
 
         //################################################################################################################################################################################
         
-        let file = File::open(level).unwrap();
-        let reader = io::BufReader::new(file);
-    
-        let mut bricks:Vec<Brick> = Vec::new();
-        let mut j= 0;
-
-        for line in reader.lines() {
-            match line {
-                Ok(content) => {                
-                    let tmp : Vec<&str> =  content.split(" ").collect();
-                    for i in 0..tmp.len() {
-                        match tmp[i].parse::<u32>() {
-                            Ok(0) => {},
-                            Ok(nombre) => {
-                             
-                                bricks.push(Brick::new(i as i32,j as i32 , nombre as i32))
-                            },
-                            _ => {}, 
-                        }
-                    }
-                }
-                _ => {}, 
-            }
-            j = j + 1;
-        }
+        
         
 //################################################################################################################################################################################
         self.drawn.push(DrawnContent {
@@ -357,7 +375,6 @@ impl<'a> Game<'a> {
             rect: rect!(WINDOW_WIDTH/2 - 12, 3*WINDOW_HEIGHT/4 + 54, 24, 24),
             color: Color::RGB(255, 255, 255)
         });
-        bricks
     }
 
     pub(crate) fn display_menu(&self, mut can: Canvas<Window>) -> Canvas<Window> {
@@ -392,7 +409,7 @@ impl<'a> Game<'a> {
         can
     }
 
-    pub(crate) fn display_game(&self, mut can: Canvas<Window>, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>,bricks : &Vec<&mut Brick>) -> Canvas<Window> {
+    pub(crate) fn display_game(&self, mut can: Canvas<Window>,bricks : &Vec<&mut Brick>) -> Canvas<Window> {
         for content in self.drawn.iter() {
             if !content.displayed_in_pause && content.displayed_in_game {
                 let _ = can.set_draw_color(content.color);
@@ -406,20 +423,9 @@ impl<'a> Game<'a> {
             }
         }
 
-        let font = ttf_context.load_font("fonts/Marlboro.ttf", 128).unwrap();
-
         for brick in bricks {
-            let brick_surface = font
-            .render(brick.life.to_string().as_str())
-            .blended(Color::RGBA(0, 255, 0, 255))
-            .map_err(|e| e.to_string()).unwrap();
-
-            let brick_texture = texture_creator
-                .create_texture_from_surface(&brick_surface)
-                .map_err(|e| e.to_string()).unwrap();
-
             let _ = can.fill_rect(brick.rect);
-            let _ = can.copy(&brick_texture,None,brick.rect);
+            let _ = can.copy(&brick.texture,None,brick.rect);
         }
 
 
@@ -429,7 +435,7 @@ impl<'a> Game<'a> {
         can
     }
 
-    pub(crate) fn act_drawn(mut self, x: i32, y: i32) -> Game<'a> {
+    pub(crate) fn act_drawn(&mut self, x: i32, y: i32) {
         for content in self.drawn.iter() {
             if (content.rect.x() <= x) && (x <= content.rect.x() + content.rect.width() as i32) && (content.rect.y() <= y) && (y <= content.rect.y() + content.rect.height() as i32) {
                 if content.name == Some(String::from_str("menu_start").unwrap()) {
@@ -447,7 +453,6 @@ impl<'a> Game<'a> {
                 }
             }
         }
-        self
     }
 }
 

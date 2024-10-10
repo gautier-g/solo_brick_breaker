@@ -2,8 +2,9 @@
 extern crate sdl2;
 
 use nalgebra::Point2;
-use sdl2::rect::Rect;
+use sdl2::{pixels::Color, rect::Rect, render::TextureCreator,ttf::Sdl2TtfContext, video::WindowContext};
 use std::f64::consts::PI;
+use sdl2::render::Texture;
 
 // Déclaration des constantes
 pub const WINDOW_WIDTH: u32 = 600;
@@ -43,7 +44,7 @@ pub struct Ball {
     vitesse: Point2<f32>
 }
 
-impl Ball {
+impl<'a> Ball {
     pub fn new(x: f32, y: f32, vx: f32, vy: f32) -> Self {
         Ball {
             pos: Point2::new(x, y),
@@ -51,35 +52,54 @@ impl Ball {
         }
     }
 
-    pub fn collision(&mut self,bricks : &mut Vec<&mut Brick>) -> i32 {
-        if self.pos.y >= WINDOW_HEIGHT as f32 {return -1}
-
+    pub fn collision(&mut self,ttf_context: &Sdl2TtfContext,texture_creator: &'a TextureCreator<WindowContext>,
+        bricks: &mut Vec<&mut Brick<'a>>) -> i32 {
+        // Vérifie si la balle est tombée en bas de la fenêtre
+        if self.pos.y >= WINDOW_HEIGHT as f32 {
+            return -1;
+        }
+    
+        // Vérifie les collisions avec les bords gauche et droit
         if self.pos.x + self.vitesse.x <= 0.0 || self.pos.x + self.vitesse.x >= (WINDOW_WIDTH as f32 - BALL_SIZE as f32) {
             self.vitesse.x = -self.vitesse.x;
             self.shift();
-            return 0
+            return 0;
         }
-
+    
+        // Vérifie la collision avec le bord supérieur
         if self.pos.y + self.vitesse.y <= 0.0 {
             self.vitesse.y = -self.vitesse.y;
             self.shift();
-            return 0
+            return 0;
         }
-
-        let tmp = Rect::new((self.pos.x + self.vitesse.x) as i32,(self.pos.y + self.vitesse.y) as i32,BALL_SIZE,BALL_SIZE);
+    
+        // Création d'un rectangle temporaire pour la position future de la balle
+        let tmp = Rect::new(
+            (self.pos.x + self.vitesse.x) as i32,
+            (self.pos.y + self.vitesse.y) as i32,
+            BALL_SIZE,
+            BALL_SIZE,
+        );
+    
+        // Vérifie les collisions avec les briques
         for brick in bricks.iter_mut() {
             if tmp.has_intersection(brick.rect) {
-                brick.life-=1;
+                // Décrémente la vie de la brique et met à jour sa texture
+                brick.life -= 1;
+                brick.set_texture(ttf_context, texture_creator);
+    
+                // Détermine quel côté de la brique a été touché
                 if brick.rect.x as f32 > self.pos.x || self.pos.x > brick.rect.x as f32 + brick.rect.width() as f32 {
                     self.vitesse.x = -self.vitesse.x; 
-                }
-                else {
+                } else {
                     self.vitesse.y = -self.vitesse.y;
                 }
+    
                 self.shift();
-                return 0
+                return 0;
             }
         }
+    
         self.shift();
         0
     }
@@ -94,13 +114,38 @@ impl Ball {
     }
 }
 
-pub struct Brick {
+pub struct Brick<'a> {
     pub rect : Rect,
-    pub life : i32
+    pub life : i32,
+    pub texture : Texture<'a>,
 }
 
-impl Brick {
-    pub fn new(i:i32,j:i32,life:i32) -> Self {
-        Brick {rect:Rect::new(i*BRICK_SIZE as i32+ 108 ,j*BRICK_SIZE as i32+ 150 ,BRICK_SIZE,BRICK_SIZE),life}
+impl<'a> Brick<'a> {
+    pub fn new(i: i32, j: i32, life: i32, texture: Texture<'a>) -> Self {
+        Brick {
+            rect: Rect::new(i * BRICK_SIZE as i32 + 108, j * BRICK_SIZE as i32 + 150, BRICK_SIZE, BRICK_SIZE),
+            life,
+            texture,
+        }
     }
+
+    pub fn set_texture(&mut self,ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>) {
+    
+        // Charger la police
+        let font_path = "fonts/Marlboro.ttf"; // Remplace par le chemin de ta police
+        let font = ttf_context.load_font(font_path, 128).unwrap();
+
+        // Rendre le texte de vie sur une surface
+        let life_text = self.life.to_string();
+        let brick_surface = font
+            .render(&life_text)
+            .blended(Color::RGBA(0, 255, 0, 255))
+            .unwrap();
+
+        // Créer une texture à partir de la surface
+        self.texture = texture_creator
+            .create_texture_from_surface(&brick_surface)
+            .unwrap();        
+    }
+
 }
