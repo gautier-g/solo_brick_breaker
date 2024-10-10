@@ -44,7 +44,7 @@ pub(crate) struct Game<'a> {
 }
 
 impl<'a> Game<'a> {
-    pub (crate) fn load_content(&mut self, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>, level : String) {
+    pub (crate) fn load_content(&mut self, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>, level : String) -> Vec<Brick> {
         let font = ttf_context.load_font("fonts/Marlboro.ttf", 128).unwrap();
 
         let surface = font
@@ -309,41 +309,8 @@ impl<'a> Game<'a> {
                         match tmp[i].parse::<u32>() {
                             Ok(0) => {},
                             Ok(nombre) => {
-                                self.drawn.push(DrawnContent {
-                                    displayed_in_game: true,
-                                    displayed_in_pause: false,
-                                    name: Some(format!("Outside brick at ({},{})", i, j)),
-                                    rect: rect!(i as u16 * 32 + 108, j as u16 * 32 + 150, 32, 32),
-                                    color: Color::RGB(0, 0, 0),
-                                });
-                                self.drawn.push(DrawnContent {
-                                    displayed_in_game: true,
-                                    displayed_in_pause: false,
-                                    name: Some(format!("Inside brick at ({},{})", i, j)),
-                                    rect: rect!(i as u16 * 32 + 109, j as u16 * 32 + 151, 30, 30),
-                                    color: Color::RGB(127, 200, 127),
-                                });
-
-
-                                let brick_surface = font
-                                    .render(tmp[i])
-                                    .blended(Color::RGBA(0, 255, 0, 255))
-                                    .map_err(|e| e.to_string()).unwrap();
-
-                                let brick_texture = texture_creator
-                                    .create_texture_from_surface(&brick_surface)
-                                    .map_err(|e| e.to_string()).unwrap();
-
-                                self.textured.push(TexturedContent {
-                                    displayed_in_game: true,
-                                    displayed_in_pause: false,
-                                    name: Some(format!("Brick health at ({},{})", i, j)),
-                                    texture: brick_texture,
-                                    src: None,
-                                    dst: Some(rect!(i as u16 * 32 + 113, j as u16 * 32 + 155, 22, 22))
-                                });
-                                
-                                bricks.push(Brick::new(j as i32 ,i as i32, nombre as i32))
+                             
+                                bricks.push(Brick::new(i as i32,j as i32 , nombre as i32))
                             },
                             _ => {}, 
                         }
@@ -390,54 +357,75 @@ impl<'a> Game<'a> {
             rect: rect!(WINDOW_WIDTH/2 - 12, 3*WINDOW_HEIGHT/4 + 54, 24, 24),
             color: Color::RGB(255, 255, 255)
         });
+        bricks
     }
 
-    pub(crate) fn display_content(&self, mut can: Canvas<Window>) -> Canvas<Window> {
-        if self.started {
-            if self.paused {
-                for content in self.drawn.iter() {
-                    if content.displayed_in_pause && content.displayed_in_game {
-                        let _ = can.set_draw_color(content.color);
-                        let _ = can.fill_rect(content.rect);
-                    }
-                }
-                
-                for content in self.textured.iter() {
-                    if content.displayed_in_pause && content.displayed_in_game {
-                        let _ = can.copy(&content.texture, content.src, content.dst);
-                    }
-                }
-            }
-            else {
-                for content in self.drawn.iter() {
-                    if !content.displayed_in_pause && content.displayed_in_game {
-                        let _ = can.set_draw_color(content.color);
-                        let _ = can.fill_rect(content.rect);
-                    }
-                }
-                
-                for content in self.textured.iter() {
-                    if !content.displayed_in_pause && content.displayed_in_game {
-                        let _ = can.copy(&content.texture, content.src, content.dst);
-                    }
-                }
+    pub(crate) fn display_menu(&self, mut can: Canvas<Window>) -> Canvas<Window> {
+        for content in self.drawn.iter() {
+            if !content.displayed_in_game {
+                let _ = can.set_draw_color(content.color);
+                let _ = can.fill_rect(content.rect);
             }
         }
-        else {
-            for content in self.drawn.iter() {
-                if !content.displayed_in_game {
-                    let _ = can.set_draw_color(content.color);
-                    let _ = can.fill_rect(content.rect);
-                }
+        
+        for content in self.textured.iter() {
+            if !content.displayed_in_game {
+                let _ = can.copy(&content.texture, content.src, content.dst);
             }
-            
-            for content in self.textured.iter() {
-                if !content.displayed_in_game {
-                    let _ = can.copy(&content.texture, content.src, content.dst);
-                }
+        }
+        can
+    }
+
+    pub(crate) fn display_pause(&self, mut can: Canvas<Window>) -> Canvas<Window> {
+        for content in self.drawn.iter() {
+            if content.displayed_in_pause && content.displayed_in_game {
+                let _ = can.set_draw_color(content.color);
+                let _ = can.fill_rect(content.rect);
+            }
+        }
+        
+        for content in self.textured.iter() {
+            if content.displayed_in_pause && content.displayed_in_game {
+                let _ = can.copy(&content.texture, content.src, content.dst);
+            }
+        }
+        can
+    }
+
+    pub(crate) fn display_game(&self, mut can: Canvas<Window>, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>,bricks : &Vec<&mut Brick>) -> Canvas<Window> {
+        for content in self.drawn.iter() {
+            if !content.displayed_in_pause && content.displayed_in_game {
+                let _ = can.set_draw_color(content.color);
+                let _ = can.fill_rect(content.rect);
+            }
+        }
+        
+        for content in self.textured.iter() {
+            if !content.displayed_in_pause && content.displayed_in_game {
+                let _ = can.copy(&content.texture, content.src, content.dst);
             }
         }
 
+        let font = ttf_context.load_font("fonts/Marlboro.ttf", 128).unwrap();
+
+        for brick in bricks {
+            let brick_surface = font
+            .render(brick.life.to_string().as_str())
+            .blended(Color::RGBA(0, 255, 0, 255))
+            .map_err(|e| e.to_string()).unwrap();
+
+            let brick_texture = texture_creator
+                .create_texture_from_surface(&brick_surface)
+                .map_err(|e| e.to_string()).unwrap();
+
+            let _ = can.fill_rect(brick.rect);
+            let _ = can.copy(&brick_texture,None,brick.rect);
+        }
+
+
+        
+
+        //###########################################################################################
         can
     }
 

@@ -8,8 +8,8 @@ use std::f64::consts::PI;
 // Déclaration des constantes
 pub const WINDOW_WIDTH: u32 = 600;
 pub const WINDOW_HEIGHT: u32 = 700;
-pub const BALL_SIZE: u32 = 20;
-pub const BRICK_SIZE: u32 = 100;
+pub const BALL_SIZE: u32 = 10;
+pub const BRICK_SIZE: u32 = 32;
 pub const N: i32 = 10;
 pub const VITESSE : i32= 15;
 
@@ -101,6 +101,6 @@ pub struct Brick {
 
 impl Brick {
     pub fn new(i:i32,j:i32,life:i32) -> Self {
-        Brick {rect:Rect::new(i*BRICK_SIZE as i32,j*BRICK_SIZE as i32,BRICK_SIZE,BRICK_SIZE),life}
+        Brick {rect:Rect::new(i*BRICK_SIZE as i32+ 108 ,j*BRICK_SIZE as i32+ 150 ,BRICK_SIZE,BRICK_SIZE),life}
     }
 }

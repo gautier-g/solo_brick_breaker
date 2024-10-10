@@ -14,13 +14,6 @@ use sdl2::event::Event;
 use sdl2::pixels::Color;
 use sdl2::Sdl;
 
-
-fn draw_bricks(canvas: &mut Canvas<Window>, bricks: &mut Vec<&mut Brick>) {
-    for brick in bricks {
-        canvas.fill_rect(brick.rect).unwrap();
-    }
-}
-
 fn main() {
 
     let sdl_context: Sdl = sdl2::init().unwrap();
@@ -42,7 +35,8 @@ fn main() {
         drawn: Vec::new(),
         textured: Vec::new()
     };
-    game.load_content(&ttf_context, &texture_creator,String::from("levels/test.txt"));
+    let mut bricks_store = game.load_content(&ttf_context, &texture_creator,String::from("levels/test.txt"));
+    let mut bricks = bricks_store.iter_mut().collect();
     //
 
     let mut event_pump = sdl_context.event_pump().unwrap();
@@ -62,16 +56,6 @@ fn main() {
     let mut frame = 0;
     let mut balls_in_round: i32 = 0;
 
-    let mut bricks_store: Vec<Brick> = Vec::new();
-    bricks_store.push(Brick::new(0, 0, 100));
-    bricks_store.push(Brick::new(1, 4, 100));
-    bricks_store.push(Brick::new(1, 1, 100));
-
-    let mut bricks: Vec<&mut Brick> = Vec::new();
-    
-    for brick in bricks_store.iter_mut() {
-        bricks.push(brick);
-    }
     'running: loop {
         for event in event_pump.poll_iter() {
             match event {
@@ -156,11 +140,15 @@ fn main() {
         }
         frame = (frame + 1)%VITESSE;
 
-        canvas = game.display_content(canvas);
-        draw_bricks(&mut canvas, &mut bricks);
+        
+        match (game.started, game.paused) {
+            (true,false) => canvas = game.display_game(canvas,&ttf_context, &texture_creator,&bricks),
+            (true,true) => canvas = game.display_pause(canvas),
+            _ => canvas = game.display_menu(canvas),
+        }
+        //draw_bricks(&mut canvas, &mut bricks);
         
         canvas.present();
-        ::std::thread::sleep(Duration::from_millis(16));
     }
     
 }
