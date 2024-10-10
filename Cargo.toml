@@ -6,3 +6,8 @@ edition = "2021"
 [dependencies]
 sdl2 = { version = "0.37", features = ["image","ttf"] }
 nalgebra = "0.29"
+rand = "0.8"
+
+[[bin]]
+name = "solo_brick_breaker"
+path = "game/src/main.rs"
