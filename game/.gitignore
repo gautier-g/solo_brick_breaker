@@ -1,0 +1,27 @@
+# Ignorer les fichiers générés par Cargo
+target/
+**/*.rs.bk
+
+# Ignorer les fichiers de configuration
+*.log
+*.lock
+
+# Ignorer les fichiers temporaires
+*.tmp
+*.temp
+
+# Ignorer les fichiers de sauvegarde
+*~
+*.swp
+
+# Ignorer les fichiers de l'IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Ignorer les fichiers de cache
+.cargo/
+
+# Ignorer les fichiers de documentation
+/doc/

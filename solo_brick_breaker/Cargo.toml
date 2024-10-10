@@ -1,0 +1,9 @@
+[package]
+name = "Brick_Breaker"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sdl2 = { version = "0.37", features = ["image","ttf"] }
+nalgebra = "0.29"
+rand = "0.8"
