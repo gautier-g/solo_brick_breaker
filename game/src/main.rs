@@ -42,7 +42,7 @@ fn main() {
         drawn: Vec::new(),
         textured: Vec::new()
     };
-    game.load_content(&ttf_context, &texture_creator);
+    game.load_content(&ttf_context, &texture_creator,String::from("levels/test.txt"));
     //
 
     let mut event_pump = sdl_context.event_pump().unwrap();

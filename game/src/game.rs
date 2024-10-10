@@ -1,6 +1,8 @@
 extern crate sdl2;
 extern crate rand;
 
+use std::fs::File;
+use std::io::{self, BufRead};
 use std::str::FromStr;
 use crate::utils::{WINDOW_WIDTH, WINDOW_HEIGHT};
 use sdl2::rect::Rect;
@@ -8,6 +10,8 @@ use sdl2::pixels::Color;
 use sdl2::render::{Canvas, Texture, TextureCreator, TextureQuery};
 use sdl2::ttf::Sdl2TtfContext;
 use sdl2::video::{Window, WindowContext};
+
+use crate::utils::Brick;
 
 macro_rules! rect(
     ($x:expr, $y:expr, $w:expr, $h:expr) => (
@@ -40,7 +44,7 @@ pub(crate) struct Game<'a> {
 }
 
 impl<'a> Game<'a> {
-    pub (crate) fn load_content(&mut self, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>) {
+    pub (crate) fn load_content(&mut self, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>, level : String) {
         let font = ttf_context.load_font("fonts/Marlboro.ttf", 128).unwrap();
 
         let surface = font
@@ -290,43 +294,66 @@ impl<'a> Game<'a> {
         self.drawn.push(top_bar_inside);
 
         //################################################################################################################################################################################
-        for i in 0..12 {
-            for j in 0..12 {
-                self.drawn.push(DrawnContent {
-                    displayed_in_game: true,
-                    displayed_in_pause: false,
-                    name: Some(format!("Outside brick at ({},{})", i, j)),
-                    rect: rect!(i as u16 * 32 + 108, j as u16 * 32 + 150, 32, 32),
-                    color: Color::RGB(0, 0, 0),
-                });
-                self.drawn.push(DrawnContent {
-                    displayed_in_game: true,
-                    displayed_in_pause: false,
-                    name: Some(format!("Inside brick at ({},{})", i, j)),
-                    rect: rect!(i as u16 * 32 + 109, j as u16 * 32 + 151, 30, 30),
-                    color: Color::RGB(127, 200, 127),
-                });
+        
+        let file = File::open(level).unwrap();
+        let reader = io::BufReader::new(file);
+    
+        let mut bricks:Vec<Brick> = Vec::new();
+        let mut j= 0;
+
+        for line in reader.lines() {
+            match line {
+                Ok(content) => {                
+                    let tmp : Vec<&str> =  content.split(" ").collect();
+                    for i in 0..tmp.len() {
+                        match tmp[i].parse::<u32>() {
+                            Ok(0) => {},
+                            Ok(nombre) => {
+                                self.drawn.push(DrawnContent {
+                                    displayed_in_game: true,
+                                    displayed_in_pause: false,
+                                    name: Some(format!("Outside brick at ({},{})", i, j)),
+                                    rect: rect!(i as u16 * 32 + 108, j as u16 * 32 + 150, 32, 32),
+                                    color: Color::RGB(0, 0, 0),
+                                });
+                                self.drawn.push(DrawnContent {
+                                    displayed_in_game: true,
+                                    displayed_in_pause: false,
+                                    name: Some(format!("Inside brick at ({},{})", i, j)),
+                                    rect: rect!(i as u16 * 32 + 109, j as u16 * 32 + 151, 30, 30),
+                                    color: Color::RGB(127, 200, 127),
+                                });
 
 
-                let brick_surface = font
-                    .render("100")
-                    .blended(Color::RGBA(0, 255, 0, 255))
-                    .map_err(|e| e.to_string()).unwrap();
+                                let brick_surface = font
+                                    .render(tmp[i])
+                                    .blended(Color::RGBA(0, 255, 0, 255))
+                                    .map_err(|e| e.to_string()).unwrap();
 
-                let brick_texture = texture_creator
-                    .create_texture_from_surface(&brick_surface)
-                    .map_err(|e| e.to_string()).unwrap();
+                                let brick_texture = texture_creator
+                                    .create_texture_from_surface(&brick_surface)
+                                    .map_err(|e| e.to_string()).unwrap();
 
-                self.textured.push(TexturedContent {
-                    displayed_in_game: true,
-                    displayed_in_pause: false,
-                    name: Some(format!("Brick health at ({},{})", i, j)),
-                    texture: brick_texture,
-                    src: None,
-                    dst: Some(rect!(i as u16 * 32 + 113, j as u16 * 32 + 155, 22, 22))
-                });
+                                self.textured.push(TexturedContent {
+                                    displayed_in_game: true,
+                                    displayed_in_pause: false,
+                                    name: Some(format!("Brick health at ({},{})", i, j)),
+                                    texture: brick_texture,
+                                    src: None,
+                                    dst: Some(rect!(i as u16 * 32 + 113, j as u16 * 32 + 155, 22, 22))
+                                });
+                                
+                                bricks.push(Brick::new(j as i32 ,i as i32, nombre as i32))
+                            },
+                            _ => {}, 
+                        }
+                    }
+                }
+                _ => {}, 
             }
+            j = j + 1;
         }
+        
 //################################################################################################################################################################################
         self.drawn.push(DrawnContent {
             displayed_in_game: true,
