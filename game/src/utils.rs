@@ -10,9 +10,9 @@ use sdl2::render::Texture;
 pub const WINDOW_WIDTH: u32 = 600;
 pub const WINDOW_HEIGHT: u32 = 700;
 pub const BALL_SIZE: u32 = 10;
-pub const BRICK_SIZE: u32 = 32;
+pub const BRICK_SIZE: u32 = 30;
 pub const N: i32 = 10;
-pub const VITESSE : i32= 15;
+pub const VITESSE : i32= 12;
 
 // Déclarations des structures
 pub struct Angle (f64);
@@ -123,26 +123,22 @@ pub struct Brick<'a> {
 impl<'a> Brick<'a> {
     pub fn new(i: i32, j: i32, life: i32, texture: Texture<'a>) -> Self {
         Brick {
-            rect: Rect::new(i * BRICK_SIZE as i32 + 108, j * BRICK_SIZE as i32 + 150, BRICK_SIZE, BRICK_SIZE),
+            rect: Rect::new(i * (BRICK_SIZE+2) as i32 + 109, j * (BRICK_SIZE+2) as i32 + 151, BRICK_SIZE, BRICK_SIZE),
             life,
             texture,
         }
     }
 
     pub fn set_texture(&mut self,ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>) {
-    
-        // Charger la police
-        let font_path = "fonts/Marlboro.ttf"; // Remplace par le chemin de ta police
-        let font = ttf_context.load_font(font_path, 128).unwrap();
 
-        // Rendre le texte de vie sur une surface
+        let font = ttf_context.load_font("fonts/Marlboro.ttf", 128).unwrap();
+
         let life_text = self.life.to_string();
         let brick_surface = font
             .render(&life_text)
             .blended(Color::RGBA(0, 255, 0, 255))
             .unwrap();
 
-        // Créer une texture à partir de la surface
         self.texture = texture_creator
             .create_texture_from_surface(&brick_surface)
             .unwrap();        

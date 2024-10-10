@@ -11,6 +11,8 @@ use crate::game::Game;
 use sdl2::event::Event;
 use sdl2::pixels::Color;
 use sdl2::Sdl;
+use std::thread;
+use std::time::Duration;
 
 fn main() {
     let sdl_context: Sdl = sdl2::init().unwrap();
@@ -79,7 +81,7 @@ fn main() {
         }
 
         // Lancement des balles au fur et à mesure
-        if round && balls_in_round < N && frame % VITESSE == 0 {
+        if round && balls_in_round < N && frame % VITESSE== 0 {
             balls.push(Ball::new(
                 (WINDOW_WIDTH - (BALL_SIZE as u32)) as f32 / 2.0,
                 (WINDOW_HEIGHT - (BALL_SIZE as u32)) as f32,
@@ -105,48 +107,59 @@ fn main() {
         // Si il n'y a plus de balles, le round finit
         if balls.is_empty() { round = false; balls_in_round = 0; }
 
-        // Rendu
-        canvas.set_draw_color(Color::RGB(0, 0, 0));
-        canvas.clear();
-        canvas.set_draw_color(Color::RGB(255, 255, 255));
-
-        // Affichage de début de round
-        if !round {
-            canvas.draw_line(
-                (WINDOW_WIDTH as i32 / 2, WINDOW_HEIGHT as i32),
-                (
-                    (WINDOW_WIDTH as f64 / 2.0 + 200.0 * angle.cos()) as i32,
-                    (WINDOW_HEIGHT as f64 - 200.0 * angle.sin()) as i32,
-                ),
-            ).unwrap();
-        }
-
-        // Affichage des briques et balles
-        if round {
-            for i in 0..bricks.len() {
-                if bricks[i].life <= 0 {
-                    index.push(i);  
+        match (game.started, game.paused) {
+            (true, false) => {
+                if frame % VITESSE == 0 {
+                    canvas.set_draw_color(Color::RGB(0, 0, 0));
+                    canvas.clear();
+                    canvas.set_draw_color(Color::RGB(255, 255, 255));
+                    if !round {
+                        canvas.draw_line(
+                            (WINDOW_WIDTH as i32 / 2, WINDOW_HEIGHT as i32),
+                            (
+                                (WINDOW_WIDTH as f64 / 2.0 + 200.0 * angle.cos()) as i32,
+                                (WINDOW_HEIGHT as f64 - 200.0 * angle.sin()) as i32,
+                            ),
+                        ).unwrap();
+                    }
+            
+                    // Affichage des briques et balles
+                    if round {
+                        for i in 0..bricks.len() {
+                            if bricks[i].life <= 0 {
+                                index.push(i);  
+                            }
+                        }
+            
+                        // Retrait des briques mortes
+                        for i in index.iter().rev() {
+                            bricks.remove(*i);
+                        }
+                        index.clear();
+            
+                        for ball in &balls {
+                            canvas.copy(&texture, None, ball.rect()).unwrap();
+                        }
+                    }
+                        
+                    canvas = game.display_game(canvas, &bricks);
+                    canvas.present();
+                    thread::sleep(Duration::from_millis(12));
+                
                 }
-            }
-
-            // Retrait des briques mortes
-            for i in index.iter().rev() {
-                bricks.remove(*i);
-            }
-            index.clear();
-
-            for ball in &balls {
-                canvas.copy(&texture, None, ball.rect()).unwrap();
-            }
+            },
+            (true, true) => {
+                canvas.set_draw_color(Color::RGB(0, 0, 0));
+                canvas.clear();
+                canvas = game.display_pause(canvas);
+                canvas.present();
+            },
+            _ => {
+                canvas.set_draw_color(Color::RGB(0, 0, 0));
+                canvas.clear();
+                canvas = game.display_menu(canvas);
+                canvas.present();},
         }
         frame = (frame + 1) % VITESSE;
-
-        match (game.started, game.paused) {
-            (true, false) => canvas = game.display_game(canvas, &bricks),
-            (true, true) => canvas = game.display_pause(canvas),
-            _ => canvas = game.display_menu(canvas),
-        }
-        
-        canvas.present();
     }
 }
