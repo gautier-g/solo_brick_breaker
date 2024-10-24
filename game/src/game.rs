@@ -1,6 +1,7 @@
 extern crate sdl2;
 extern crate rand;
 
+use sdl2::mixer::{Chunk, InitFlag, AUDIO_S16LSB, DEFAULT_CHANNELS};
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::str::FromStr;
@@ -10,6 +11,7 @@ use sdl2::pixels::Color;
 use sdl2::render::{Canvas, Texture, TextureCreator, TextureQuery};
 use sdl2::ttf::Sdl2TtfContext;
 use sdl2::video::{Window, WindowContext};
+use std::path::Path;
 
 use crate::utils::Brick;
 
@@ -47,7 +49,7 @@ impl<'a> Game<'a> {
 
     pub fn load_bricks(&self,ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>,level : String) -> Vec<Brick<'a>> {
 
-        let font = ttf_context.load_font("fonts/Marlboro.ttf", 128).unwrap();
+        let font = ttf_context.load_font(Path::new("fonts/Marlboro.ttf"), 128).unwrap();
 
         let file = File::open(level).unwrap();
         let reader = io::BufReader::new(file);
@@ -87,7 +89,7 @@ impl<'a> Game<'a> {
     }
 
     pub (crate) fn load_content(&mut self, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>){
-        let font = ttf_context.load_font("fonts/Marlboro.ttf", 128).unwrap();
+        let font = ttf_context.load_font(Path::new("fonts/Marlboro.ttf"), 128).unwrap();
 
         let surface = font
             .render("CONCRETE ANNIHILATOR")
@@ -110,6 +112,28 @@ impl<'a> Game<'a> {
         };
 
         self.textured.push(title_textured_content);
+
+        let subtitle_surface = font
+            .render("Survive a maximum of waves!")
+            .blended(Color::RGBA(255, 255, 255, 255))
+            .map_err(|e| e.to_string()).unwrap();
+
+        let subtitle_texture = texture_creator
+            .create_texture_from_surface(&subtitle_surface)
+            .map_err(|e| e.to_string()).unwrap();
+
+        let TextureQuery { width, height, .. } = subtitle_texture.query();
+        
+        let subtitle_textured_content = TexturedContent {
+            displayed_in_game: false,
+            displayed_in_pause: false,
+            name: Some(String::from_str("menu_subtitle").unwrap()),
+            texture: subtitle_texture,
+            src: None,
+            dst: Some(rect!(WINDOW_WIDTH/2 - width/6, 130, width/3, height/3))
+        };
+
+        self.textured.push(subtitle_textured_content);
 
         let start_button = DrawnContent {
             displayed_in_game: false,
@@ -373,6 +397,8 @@ impl<'a> Game<'a> {
     }
 
     pub(crate) fn display_menu(&self, mut can: Canvas<Window>) -> Canvas<Window> {
+        can.set_draw_color(Color::RGB(0, 0, 0));
+        can.clear();
         for content in self.drawn.iter() {
             if !content.displayed_in_game {
                 let _ = can.set_draw_color(content.color);
@@ -389,6 +415,9 @@ impl<'a> Game<'a> {
     }
 
     pub(crate) fn display_pause(&self, mut can: Canvas<Window>) -> Canvas<Window> {
+        can.set_draw_color(Color::RGB(0, 0, 0));
+        can.clear();
+
         for content in self.drawn.iter() {
             if content.displayed_in_pause && content.displayed_in_game {
                 let _ = can.set_draw_color(content.color);
@@ -405,6 +434,9 @@ impl<'a> Game<'a> {
     }
 
     pub(crate) fn display_game(&self, mut can: Canvas<Window>,bricks : &Vec<&mut Brick>) -> Canvas<Window> {
+        can.set_draw_color(Color::RGB(0, 0, 0));
+        can.clear();
+
         for content in self.drawn.iter() {
             if !content.displayed_in_pause && content.displayed_in_game {
                 let _ = can.set_draw_color(content.color);
@@ -425,21 +457,29 @@ impl<'a> Game<'a> {
         can
     }
 
-    pub(crate) fn act_drawn(&mut self, x: i32, y: i32) {
+    pub(crate) fn act_drawn(&mut self, x: i32, y: i32, home_music_chunk: &Chunk, background_ig_music_chunk: &Chunk) {
         for content in self.drawn.iter() {
             if (content.rect.x() <= x) && (x <= content.rect.x() + content.rect.width() as i32) && (content.rect.y() <= y) && (y <= content.rect.y() + content.rect.height() as i32) {
-                if content.name == Some(String::from_str("menu_start").unwrap()) {
+                if content.name == Some(String::from_str("menu_start").unwrap()) && self.started == false {
                     self.started = true;
+
+                    sdl2::mixer::Channel(0).halt();
+                    sdl2::mixer::Channel(1).play(background_ig_music_chunk, 10000).unwrap();
                 }
-                if content.name == Some(String::from_str("pause_button").unwrap()) {
+                if content.name == Some(String::from_str("pause_button").unwrap()) && self.paused == false {
                     self.paused = true;
+                    sdl2::mixer::Channel(1).pause();
                 }
-                if content.name == Some(String::from_str("pause_resume").unwrap()) {
+                if content.name == Some(String::from_str("pause_resume").unwrap()) && self.paused == true {
                     self.paused = false;
+                    sdl2::mixer::Channel(1).resume();
                 }
-                if content.name == Some(String::from_str("pause_giveup").unwrap()) {
+                if content.name == Some(String::from_str("pause_giveup").unwrap()) && (self.started == true && self.paused == true) {
                     self.started = false;
                     self.paused = false;
+
+                    sdl2::mixer::Channel(1).halt();
+                    sdl2::mixer::Channel(0).play(home_music_chunk, 2).unwrap();
                 }
             }
         }

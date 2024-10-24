@@ -1,7 +1,7 @@
-
 mod game;
 mod utils;
 
+use sdl2::mixer::{InitFlag, AUDIO_S16LSB, DEFAULT_CHANNELS};
 use sdl2::image::{self, LoadTexture};
 use sdl2::video::Window;
 use sdl2::keyboard::Keycode;
@@ -9,7 +9,7 @@ use std::path::Path;
 use crate::utils::{WINDOW_WIDTH, WINDOW_HEIGHT, BALL_SIZE, N, VITESSE, Angle,Ball};
 use crate::game::Game;
 use sdl2::event::Event;
-use sdl2::pixels::Color;
+use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::Sdl;
 use std::thread;
 use std::time::Duration;
@@ -30,11 +30,35 @@ fn main() {
 
     // Initialisation du jeu
     let mut game = Game {
-        started: true,
+        started: false,
         paused: false,
         drawn: Vec::new(),
         textured: Vec::new(),
     };
+
+    let frequency = 44_100;
+    let format = AUDIO_S16LSB; // signed 16 bit samples, in little-endian byte order
+    let channels = DEFAULT_CHANNELS; // Stereo
+    let chunk_size = 1_024;
+    sdl2::mixer::open_audio(frequency, format, channels, chunk_size).unwrap();
+    let _mixer_context = sdl2::mixer::init(InitFlag::MP3 | InitFlag::FLAC | InitFlag::MOD | InitFlag::OGG).unwrap();
+    sdl2::mixer::allocate_channels(2);
+
+    let home_music_chunk = sdl2::mixer::Chunk::from_file(Path::new("retro-game-arcade-236133.mp3")).unwrap();
+    let background_ig_music_chunk = sdl2::mixer::Chunk::from_file(Path::new("background-music.mp3")).unwrap();
+    sdl2::mixer::Channel(0).set_volume(60);
+    sdl2::mixer::Channel(1).set_volume(30);
+    sdl2::mixer::Channel(0).play(&home_music_chunk, 2).unwrap();
+    
+    ffmpeg_next::init().unwrap();
+
+    /*let mut ictx = ffmpeg_next::format::input(&"rolling-ball.gif").unwrap();
+    let stream = ictx.streams().best(ffmpeg_next::media::Type::Video).unwrap();
+    let mut decoder = stream.codec().decoder().video().unwrap();
+
+    let mut frame_vid = ffmpeg_next::frame::Video::empty();
+    let mut packet = ffmpeg_next::Packet::empty();*/
+
     // Charge les briques en passant game par référence mutable
     game.load_content(&ttf_context, &texture_creator);
 
@@ -42,7 +66,6 @@ fn main() {
     let mut bricks_store = game.load_bricks(&ttf_context, &texture_creator, String::from("levels/test.txt"));
     let mut bricks = bricks_store.iter_mut().collect();
 
-    
     let mut event_pump = sdl_context.event_pump().unwrap();
     
     let mut angle = Angle::new();
@@ -65,7 +88,7 @@ fn main() {
             match event {
                 Event::Quit { .. } => break 'running,
                 Event::MouseButtonDown { x, y, .. } => {
-                    game.act_drawn(x, y); // Pas de mouvement, juste un appel par référence mutable
+                    game.act_drawn(x, y, &home_music_chunk, &background_ig_music_chunk); // Pas de mouvement, juste un appel par référence mutable
                 },
                 Event::KeyDown { keycode: Some(key), .. } => {
                     match key {
@@ -106,12 +129,10 @@ fn main() {
      
         // Si il n'y a plus de balles, le round finit
         if balls.is_empty() { round = false; balls_in_round = 0; }
-
+        
         match (game.started, game.paused) {
             (true, false) => {
                 if frame % VITESSE == 0 {
-                    canvas.set_draw_color(Color::RGB(0, 0, 0));
-                    canvas.clear();
                     canvas.set_draw_color(Color::RGB(255, 255, 255));
                     if !round {
                         canvas.draw_line(
@@ -143,23 +164,31 @@ fn main() {
                     }
                         
                     canvas = game.display_game(canvas, &bricks);
-                    canvas.present();
-                    thread::sleep(Duration::from_millis(12));
-                
                 }
             },
             (true, true) => {
-                canvas.set_draw_color(Color::RGB(0, 0, 0));
-                canvas.clear();
                 canvas = game.display_pause(canvas);
-                canvas.present();
             },
             _ => {
-                canvas.set_draw_color(Color::RGB(0, 0, 0));
-                canvas.clear();
                 canvas = game.display_menu(canvas);
-                canvas.present();},
+                },
         }
         frame = (frame + 1) % VITESSE;
+
+        /*if ictx.packets().next(&mut packet).unwrap() {
+            let width = frame_vid.width();
+            let height = frame_vid.height();
+
+            let mut png_texture = texture_creator
+                .create_texture_target(PixelFormatEnum::ABGR8888, width, height)
+                .unwrap();
+
+            png_texture.update(None, &frame_vid.data(0), (width * 4) as usize).unwrap();
+
+            canvas.copy(&texture, None, None).unwrap();
+        }*/
+
+        thread::sleep(Duration::from_millis(12));
+        canvas.present();
     }
 }
