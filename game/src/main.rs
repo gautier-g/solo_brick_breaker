@@ -39,7 +39,9 @@ fn main() {
         balls: Vec::new(),
         index: Vec::new(),
         round: false,
-        balls_in_round: 0
+        balls_in_round: 0,
+        game_is_loaded: false,
+        game_is_lost: false
     };
 
     let frequency = 44_100;
@@ -57,7 +59,6 @@ fn main() {
     sdl2::mixer::Channel(0).play(&home_music_chunk, 2).unwrap();
 
     game.load_content(&ttf_context, &texture_creator);
-    game.load_bricks(&ttf_context, &texture_creator, String::from_str("levels/test.txt").unwrap());
 
     let ball_texture = texture_creator
         .load_texture(Path::new("white-circle.png"))
@@ -87,15 +88,22 @@ fn main() {
             }
         }
 
+        if !game.game_is_loaded {
+            game.load_bricks(&ttf_context, &texture_creator, String::from_str("levels/test.txt").unwrap());
+        }
+
         if !game.paused {
             game.update_balls_state(frame, &ttf_context, &texture_creator);
         }
 
-        match (game.started, game.paused) {
-            (true, false) => {
+        match (game.started, game.paused, game.game_is_lost) {
+            (_, _, true) => {
+                canvas = game.display_loss(canvas);
+            }
+            (true, false, _) => {
                 canvas = game.display_balls_and_bricks(canvas, &ball_texture);
             },
-            (true, true) => {
+            (true, true, _) => {
                 canvas = game.display_pause(canvas);
             },
             _ => {

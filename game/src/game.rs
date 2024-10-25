@@ -6,7 +6,7 @@ use sdl2::mixer::Chunk;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::str::FromStr;
-use crate::utils::{Angle, Ball, WINDOW_HEIGHT, WINDOW_WIDTH, N, BALL_SIZE};
+use crate::utils::{Angle, Ball, BALL_SIZE, BRICK_SIZE, N, WINDOW_HEIGHT, WINDOW_WIDTH};
 use sdl2::rect::Rect;
 use sdl2::pixels::Color;
 use sdl2::render::{Canvas, Texture, TextureCreator, TextureQuery};
@@ -25,6 +25,7 @@ macro_rules! rect(
 pub(crate) struct DrawnContent {
     pub(crate) displayed_in_game: bool,
     pub(crate) displayed_in_pause: bool,
+    pub(crate) displayed_at_loss: bool,
     pub(crate) name: Option<String>,
     pub(crate) rect: Rect,
     pub(crate) color: Color
@@ -33,6 +34,7 @@ pub(crate) struct DrawnContent {
 pub(crate) struct TexturedContent<'a> {
     pub(crate) displayed_in_game: bool,
     pub(crate) displayed_in_pause: bool,
+    pub(crate) displayed_at_loss: bool,
     pub(crate) name: Option<String>,
     pub(crate) texture: Texture<'a>,
     pub(crate) src: Option<Rect>,
@@ -49,7 +51,9 @@ pub(crate) struct Game<'a> {
     pub(crate) balls: Vec<Ball>,
     pub(crate) index: Vec<usize>,
     pub(crate) round: bool,
-    pub(crate) balls_in_round: i32
+    pub(crate) balls_in_round: i32,
+    pub(crate) game_is_loaded: bool,
+    pub(crate) game_is_lost: bool
 }
 
 impl<'a> Game<'a> {
@@ -93,6 +97,7 @@ impl<'a> Game<'a> {
             j = j + 1;
         }
         self.bricks = bricks;
+        self.game_is_loaded = true;
 
     }
 
@@ -113,6 +118,7 @@ impl<'a> Game<'a> {
         let title_textured_content = TexturedContent {
             displayed_in_game: false,
             displayed_in_pause: false,
+            displayed_at_loss: false,
             name: Some(String::from_str("menu_title").unwrap()),
             texture: texture,
             src: None,
@@ -135,6 +141,7 @@ impl<'a> Game<'a> {
         let subtitle_textured_content = TexturedContent {
             displayed_in_game: false,
             displayed_in_pause: false,
+            displayed_at_loss: false,
             name: Some(String::from_str("menu_subtitle").unwrap()),
             texture: subtitle_texture,
             src: None,
@@ -146,6 +153,7 @@ impl<'a> Game<'a> {
         let start_button = DrawnContent {
             displayed_in_game: false,
             displayed_in_pause: false,
+            displayed_at_loss: false,
             name: Some(String::from_str("menu_start").unwrap()),
             rect: rect!(200, 200, 200, 100),
             color: Color::RGB(255, 255, 255)
@@ -163,6 +171,7 @@ impl<'a> Game<'a> {
         let start_textured_content = TexturedContent {
             displayed_in_game: false,
             displayed_in_pause: false,
+            displayed_at_loss: false,
             name: None,
             texture: start_texture,
             src: None,
@@ -172,6 +181,7 @@ impl<'a> Game<'a> {
         let settings_button = DrawnContent {
             displayed_in_game: false,
             displayed_in_pause: false,
+            displayed_at_loss: false,
             name: Some(String::from_str("menu_settings").unwrap()),
             rect: rect!(200, 350, 200, 100),
             color: Color::RGB(255, 255, 255)
@@ -189,6 +199,7 @@ impl<'a> Game<'a> {
         let settings_textured_content = TexturedContent {
             displayed_in_game: false,
             displayed_in_pause: false,
+            displayed_at_loss: false,
             name: None,
             texture: settings_texture,
             src: None,
@@ -198,6 +209,7 @@ impl<'a> Game<'a> {
         let credits_button = DrawnContent {
             displayed_in_game: false,
             displayed_in_pause: false,
+            displayed_at_loss: false,
             name: Some(String::from_str("menu_credits").unwrap()),
             rect: rect!(200, 500, 200, 100),
             color: Color::RGB(255, 255, 255)
@@ -215,6 +227,7 @@ impl<'a> Game<'a> {
         let credits_textured_content = TexturedContent {
             displayed_in_game: false,
             displayed_in_pause: false,
+            displayed_at_loss: false,
             name: None,
             texture: credits_texture,
             src: None,
@@ -224,6 +237,7 @@ impl<'a> Game<'a> {
         let pause_button = DrawnContent {
             displayed_in_game: true,
             displayed_in_pause: false,
+            displayed_at_loss: false,
             name: Some(String::from_str("pause_button").unwrap()),
             rect: rect!(420, 15, 150, 40),
             color: Color::RGB(255, 255, 255)
@@ -241,6 +255,7 @@ impl<'a> Game<'a> {
         let pause_textured_content = TexturedContent {
             displayed_in_game: true,
             displayed_in_pause: false,
+            displayed_at_loss: false,
             name: None,
             texture: pause_texture,
             src: None,
@@ -250,6 +265,7 @@ impl<'a> Game<'a> {
         let resume_button = DrawnContent {
             displayed_in_game: true,
             displayed_in_pause: true,
+            displayed_at_loss: false,
             name: Some(String::from_str("pause_resume").unwrap()),
             rect: rect!(200, 200, 200, 100),
             color: Color::RGB(255, 255, 255)
@@ -267,6 +283,7 @@ impl<'a> Game<'a> {
         let resume_textured_content = TexturedContent {
             displayed_in_game: true,
             displayed_in_pause: true,
+            displayed_at_loss: false,
             name: None,
             texture: resume_texture,
             src: None,
@@ -276,6 +293,7 @@ impl<'a> Game<'a> {
         let giveup_button = DrawnContent {
             displayed_in_game: true,
             displayed_in_pause: true,
+            displayed_at_loss: false,
             name: Some(String::from_str("pause_giveup").unwrap()),
             rect: rect!(200, 350, 200, 100),
             color: Color::RGB(255, 255, 255)
@@ -293,6 +311,7 @@ impl<'a> Game<'a> {
         let giveup_textured_content = TexturedContent {
             displayed_in_game: true,
             displayed_in_pause: true,
+            displayed_at_loss: false,
             name: None,
             texture: giveup_texture,
             src: None,
@@ -315,6 +334,7 @@ impl<'a> Game<'a> {
         let left_bar_outside = DrawnContent {
             displayed_in_game: true,
             displayed_in_pause: false,
+            displayed_at_loss: false,
             name: Some(String::from_str("left_bar").unwrap()),
             rect: rect!(100, 75, 5, 600),
             color: Color::RGB(50, 50, 255)
@@ -323,6 +343,7 @@ impl<'a> Game<'a> {
         let right_bar_outside = DrawnContent {
             displayed_in_game: true,
             displayed_in_pause: false,
+            displayed_at_loss: false,
             name: Some(String::from_str("right_bar").unwrap()),
             rect: rect!(WINDOW_WIDTH-105, 75, 5, 600),
             color: Color::RGB(50, 50, 255)
@@ -331,6 +352,7 @@ impl<'a> Game<'a> {
         let left_bar_inside = DrawnContent {
             displayed_in_game: true,
             displayed_in_pause: false,
+            displayed_at_loss: false,
             name: Some(String::from_str("left_bar").unwrap()),
             rect: rect!(101, 76, 3, 598),
             color: Color::RGB(0, 0, 0)
@@ -339,6 +361,7 @@ impl<'a> Game<'a> {
         let right_bar_inside = DrawnContent {
             displayed_in_game: true,
             displayed_in_pause: false,
+            displayed_at_loss: false,
             name: Some(String::from_str("right_bar").unwrap()),
             rect: rect!(WINDOW_WIDTH-104, 76, 3, 598),
             color: Color::RGB(0, 0, 0)
@@ -347,6 +370,7 @@ impl<'a> Game<'a> {
         let top_bar_outside = DrawnContent {
             displayed_in_game: true,
             displayed_in_pause: false,
+            displayed_at_loss: false,
             name: Some(String::from_str("top_bar").unwrap()),
             rect: rect!(100, 75, 400, 5),
             color: Color::RGB(50, 50, 255)
@@ -355,6 +379,7 @@ impl<'a> Game<'a> {
         let top_bar_inside = DrawnContent {
             displayed_in_game: true,
             displayed_in_pause: false,
+            displayed_at_loss: false,
             name: Some(String::from_str("top_bar").unwrap()),
             rect: rect!(101, 76, 398, 3),
             color: Color::RGB(0, 0, 0)
@@ -367,41 +392,16 @@ impl<'a> Game<'a> {
         self.drawn.push(right_bar_inside);
         self.drawn.push(top_bar_inside);
 
-        self.drawn.push(DrawnContent {
+        let limit_bar = DrawnContent {
             displayed_in_game: true,
             displayed_in_pause: false,
-            name: Some(String::from_str("player_weapon").unwrap()),
-            rect: rect!(WINDOW_WIDTH/2 - 16, 3*WINDOW_HEIGHT/4 + 50, 32, 32),
-            color: Color::RGB(255, 255, 255)
-        });
-        self.drawn.push(DrawnContent {
-            displayed_in_game: true,
-            displayed_in_pause: false,
-            name: Some(String::from_str("player_weapon").unwrap()),
-            rect: rect!(WINDOW_WIDTH/2 - 15, 3*WINDOW_HEIGHT/4 + 51, 30, 30),
-            color: Color::RGB(0, 0, 0)
-        });
-        self.drawn.push(DrawnContent {
-            displayed_in_game: true,
-            displayed_in_pause: false,
-            name: Some(String::from_str("player_weapon").unwrap()),
-            rect: rect!(WINDOW_WIDTH/2 - 14, 3*WINDOW_HEIGHT/4 + 52, 28, 28),
-            color: Color::RGB(255, 255, 255)
-        });
-        self.drawn.push(DrawnContent {
-            displayed_in_game: true,
-            displayed_in_pause: false,
-            name: Some(String::from_str("player_weapon").unwrap()),
-            rect: rect!(WINDOW_WIDTH/2 - 13, 3*WINDOW_HEIGHT/4 + 53, 26, 26),
-            color: Color::RGB(0, 0, 0)
-        });
-        self.drawn.push(DrawnContent {
-            displayed_in_game: true,
-            displayed_in_pause: false,
-            name: Some(String::from_str("player_weapon").unwrap()),
-            rect: rect!(WINDOW_WIDTH/2 - 12, 3*WINDOW_HEIGHT/4 + 54, 24, 24),
-            color: Color::RGB(255, 255, 255)
-        });
+            displayed_at_loss: false,
+            name: Some(String::from_str("limit_bar").unwrap()),
+            rect: rect!(101, 585, 398, 3),
+            color: Color::RGB(255, 0, 0)
+        };
+
+        self.drawn.push(limit_bar);
 
         self.angle = Angle::new();
         self.balls = Vec::new();
@@ -409,20 +409,92 @@ impl<'a> Game<'a> {
 
         self.round = false;
         self.balls_in_round = 0;
+
+        let retry_button = DrawnContent {
+            displayed_in_game: false,
+            displayed_in_pause: false,
+            displayed_at_loss: true,
+            name: Some(String::from_str("retry_button").unwrap()),
+            rect: rect!(200,  475, 200, 100),
+            color: Color::RGB(255, 255, 255)
+        };
+
+        let retry_surface = font
+            .render("Retry")
+            .blended(Color::RGBA(0, 0, 0, 255))
+            .map_err(|e| e.to_string()).unwrap();
+
+        let retry_texture = texture_creator
+            .create_texture_from_surface(&retry_surface)
+            .map_err(|e| e.to_string()).unwrap();
+
+        let retry_textured_content = TexturedContent {
+            displayed_in_game: false,
+            displayed_in_pause: false,
+            displayed_at_loss: true,
+            name: None,
+            texture: retry_texture,
+            src: None,
+            dst: Some(rect!(225, 500, 150, 50))
+        };
+
+        let loss_title_surface = font
+            .render("You lose!")
+            .blended(Color::RGBA(255, 255, 255, 255))
+            .map_err(|e| e.to_string()).unwrap();
+
+        let loss_title_texture = texture_creator
+            .create_texture_from_surface(&loss_title_surface)
+            .map_err(|e| e.to_string()).unwrap();
+
+        let loss_title_textured_content = TexturedContent {
+            displayed_in_game: false,
+            displayed_in_pause: false,
+            displayed_at_loss: true,
+            name: None,
+            texture: loss_title_texture,
+            src: None,
+            dst: Some(rect!(225, 200, 150, 50))
+        };
+
+        let loss_subtitle_surface = font
+            .render("Best score: ")
+            .blended(Color::RGBA(255, 255, 255, 255))
+            .map_err(|e| e.to_string()).unwrap();
+
+        let loss_subtitle_texture = texture_creator
+            .create_texture_from_surface(&loss_subtitle_surface)
+            .map_err(|e| e.to_string()).unwrap();
+
+        let loss_subtitle_textured_content = TexturedContent {
+            displayed_in_game: false,
+            displayed_in_pause: false,
+            displayed_at_loss: true,
+            name: None,
+            texture: loss_subtitle_texture,
+            src: None,
+            dst: Some(rect!(225, 300, 150, 50))
+        };
+
+        self.drawn.push(retry_button);
+        self.textured.push(retry_textured_content);
+        self.textured.push(loss_title_textured_content);
+        self.textured.push(loss_subtitle_textured_content);
+
     }
 
     pub(crate) fn display_menu(&self, mut can: Canvas<Window>) -> Canvas<Window> {
         can.set_draw_color(Color::RGB(0, 0, 0));
         can.clear();
         for content in self.drawn.iter() {
-            if !content.displayed_in_game {
+            if !content.displayed_in_game && !content.displayed_at_loss {
                 let _ = can.set_draw_color(content.color);
                 let _ = can.fill_rect(content.rect);
             }
         }
         
         for content in self.textured.iter() {
-            if !content.displayed_in_game {
+            if !content.displayed_in_game && !content.displayed_at_loss {
                 let _ = can.copy(&content.texture, content.src, content.dst);
             }
         }
@@ -448,6 +520,25 @@ impl<'a> Game<'a> {
         can
     }
 
+    pub(crate) fn display_loss(&self, mut can: Canvas<Window>) -> Canvas<Window> {
+        can.set_draw_color(Color::RGB(0, 0, 0));
+        can.clear();
+
+        for content in self.drawn.iter() {
+            if content.displayed_at_loss {
+                let _ = can.set_draw_color(content.color);
+                let _ = can.fill_rect(content.rect);
+            }
+        }
+        
+        for content in self.textured.iter() {
+            if content.displayed_at_loss {
+                let _ = can.copy(&content.texture, content.src, content.dst);
+            }
+        }
+        can
+    }
+
     pub(crate) fn display_game(&self, mut can: Canvas<Window>) -> Canvas<Window> {
         can.set_draw_color(Color::RGB(0, 0, 0));
         can.clear();
@@ -466,22 +557,26 @@ impl<'a> Game<'a> {
         }
 
         for brick in self.bricks.iter() {
+            can.set_draw_color(Color::RGB(255,255,255));
             let _ = can.fill_rect(brick.rect);
             let _ = can.copy(&brick.texture,None,brick.rect);
         }
         can
     }
 
-    pub(crate) fn act_drawn(&mut self, x: i32, y: i32, home_music_chunk: &Chunk, background_ig_music_chunk: &Chunk ) {
-        for content in self.drawn.iter() {
+    pub(crate) fn act_drawn(&mut self, x: i32, y: i32, home_music_chunk: &Chunk, background_ig_music_chunk: &Chunk) {
+        for content in self.drawn.iter_mut() {
             if (content.rect.x() <= x) && (x <= content.rect.x() + content.rect.width() as i32) && (content.rect.y() <= y) && (y <= content.rect.y() + content.rect.height() as i32) {
-                if content.name == Some(String::from_str("menu_start").unwrap()) && self.started == false {
+                if content.name == Some(String::from_str("menu_start").unwrap()) && self.started == false && self.game_is_lost == false {
                     self.started = true;
 
                     sdl2::mixer::Channel(0).halt();
                     sdl2::mixer::Channel(1).play(background_ig_music_chunk, 10000).unwrap();
+
+                    self.balls = Vec::new();
+                    self.game_is_loaded = false;
                 }
-                if content.name == Some(String::from_str("pause_button").unwrap()) && self.paused == false {
+                if content.name == Some(String::from_str("pause_button").unwrap()) && self.paused == false && self.game_is_lost == false {
                     self.paused = true;
                     sdl2::mixer::Channel(1).pause();
                 }
@@ -495,6 +590,13 @@ impl<'a> Game<'a> {
 
                     sdl2::mixer::Channel(1).halt();
                     sdl2::mixer::Channel(0).play(home_music_chunk, 2).unwrap();
+                }
+                if content.name == Some(String::from_str("retry_button").unwrap()) && (self.started == false && self.paused == false && self.game_is_lost == true) {
+                    self.game_is_lost = false;
+                    self.started = true;
+                    self.game_is_loaded = false;
+
+                    sdl2::mixer::Channel(1).play(background_ig_music_chunk, 10000).unwrap();
                 }
             }
         }
@@ -522,7 +624,7 @@ impl<'a> Game<'a> {
         }
         self.index.clear();
      
-        if self.balls.is_empty() { self.round = false; self.balls_in_round = 0; }
+        if self.balls.is_empty() && self.round == true { self.round = false; self.balls_in_round = 0; self.get_bricks_down(); self.game_is_lost = self.is_lost();} 
     }
 
     pub(crate) fn display_balls_and_bricks(&mut self, mut canvas: Canvas<Window>, ball_texture: &Texture<'_>) -> Canvas<Window> {
@@ -558,6 +660,26 @@ impl<'a> Game<'a> {
         }
 
         canvas
+    }
+
+    pub(crate) fn get_bricks_down(&mut self) {
+        for brick in self.bricks.iter_mut() {
+            brick.rect.y += BRICK_SIZE as i32;
+        }
+    }
+
+    pub(crate) fn is_lost(&mut self) -> bool {
+        for brick in self.bricks.iter() {
+            if brick.rect.y + brick.rect.height() as i32 > 585 {
+                self.started = false;
+                self.game_is_lost = true;
+                sdl2::mixer::Channel(1).halt();
+                print!("yes!");
+                return true;
+            }
+        }
+        print!("no!");
+        return false;
     }
 }
 

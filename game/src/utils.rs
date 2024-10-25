@@ -78,7 +78,7 @@ impl<'a> Ball {
                 brick.life -= 1;
                 brick.set_texture(ttf_context, texture_creator);
     
-                if brick.rect.x as f32 > self.pos.x && self.pos.x > brick.rect.x as f32 + brick.rect.width() as f32 {
+                if !brick.rect.x as f32 > self.pos.x && self.pos.x > brick.rect.x as f32 + brick.rect.width() as f32 {
                     self.vitesse.x = -self.vitesse.x; 
                 }
                 else {
