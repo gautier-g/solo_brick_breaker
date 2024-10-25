@@ -1,11 +1,12 @@
 extern crate sdl2;
 extern crate rand;
 
-use sdl2::mixer::{Chunk, InitFlag, AUDIO_S16LSB, DEFAULT_CHANNELS};
+use ffmpeg_next::ffi::sqrtf;
+use sdl2::mixer::Chunk;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::str::FromStr;
-use crate::utils::{WINDOW_WIDTH, WINDOW_HEIGHT};
+use crate::utils::{Angle, Ball, WINDOW_HEIGHT, WINDOW_WIDTH, N, BALL_SIZE};
 use sdl2::rect::Rect;
 use sdl2::pixels::Color;
 use sdl2::render::{Canvas, Texture, TextureCreator, TextureQuery};
@@ -42,19 +43,25 @@ pub(crate) struct Game<'a> {
     pub(crate) started: bool,
     pub(crate) paused: bool,
     pub(crate) drawn: Vec<DrawnContent>,
-    pub(crate) textured: Vec<TexturedContent<'a>>
+    pub(crate) textured: Vec<TexturedContent<'a>>,
+    pub(crate) bricks: Vec<Brick<'a>>,
+    pub(crate) angle: Angle,
+    pub(crate) balls: Vec<Ball>,
+    pub(crate) index: Vec<usize>,
+    pub(crate) round: bool,
+    pub(crate) balls_in_round: i32
 }
 
 impl<'a> Game<'a> {
 
-    pub fn load_bricks(&self,ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>,level : String) -> Vec<Brick<'a>> {
+    pub fn load_bricks(&mut self,ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>,level : String) {
 
         let font = ttf_context.load_font(Path::new("fonts/Marlboro.ttf"), 128).unwrap();
 
         let file = File::open(level).unwrap();
         let reader = io::BufReader::new(file);
     
-        let mut bricks:Vec<Brick> = Vec::new();
+        let mut bricks:Vec<Brick<'a>> = Vec::new();
         let mut j= 0;
 
         for line in reader.lines() {
@@ -85,7 +92,8 @@ impl<'a> Game<'a> {
             }
             j = j + 1;
         }
-        bricks
+        self.bricks = bricks;
+
     }
 
     pub (crate) fn load_content(&mut self, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>){
@@ -394,6 +402,13 @@ impl<'a> Game<'a> {
             rect: rect!(WINDOW_WIDTH/2 - 12, 3*WINDOW_HEIGHT/4 + 54, 24, 24),
             color: Color::RGB(255, 255, 255)
         });
+
+        self.angle = Angle::new();
+        self.balls = Vec::new();
+        self.index = Vec::new();
+
+        self.round = false;
+        self.balls_in_round = 0;
     }
 
     pub(crate) fn display_menu(&self, mut can: Canvas<Window>) -> Canvas<Window> {
@@ -433,7 +448,7 @@ impl<'a> Game<'a> {
         can
     }
 
-    pub(crate) fn display_game(&self, mut can: Canvas<Window>,bricks : &Vec<&mut Brick>) -> Canvas<Window> {
+    pub(crate) fn display_game(&self, mut can: Canvas<Window>) -> Canvas<Window> {
         can.set_draw_color(Color::RGB(0, 0, 0));
         can.clear();
 
@@ -450,14 +465,14 @@ impl<'a> Game<'a> {
             }
         }
 
-        for brick in bricks {
+        for brick in self.bricks.iter() {
             let _ = can.fill_rect(brick.rect);
             let _ = can.copy(&brick.texture,None,brick.rect);
         }
         can
     }
 
-    pub(crate) fn act_drawn(&mut self, x: i32, y: i32, home_music_chunk: &Chunk, background_ig_music_chunk: &Chunk) {
+    pub(crate) fn act_drawn(&mut self, x: i32, y: i32, home_music_chunk: &Chunk, background_ig_music_chunk: &Chunk ) {
         for content in self.drawn.iter() {
             if (content.rect.x() <= x) && (x <= content.rect.x() + content.rect.width() as i32) && (content.rect.y() <= y) && (y <= content.rect.y() + content.rect.height() as i32) {
                 if content.name == Some(String::from_str("menu_start").unwrap()) && self.started == false {
@@ -483,6 +498,66 @@ impl<'a> Game<'a> {
                 }
             }
         }
+    }
+
+    pub(crate) fn update_balls_state(&mut self, frame: i32, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>) {
+        if (self.round && self.balls_in_round < N && frame % 2 == 0) || (self.round && self.balls_in_round == 0) {
+            self.balls.push(Ball::new(
+                (WINDOW_WIDTH - (BALL_SIZE as u32)) as f32 / 2.0,
+                (WINDOW_HEIGHT - (BALL_SIZE as u32)) as f32,
+                (self.angle.cos() as f32)*(unsafe { sqrtf((WINDOW_HEIGHT/10) as f32) }),
+                -(self.angle.sin() as f32)*(unsafe { sqrtf((WINDOW_WIDTH/10) as f32) }),
+            ));
+            self.balls_in_round += 1;
+        }        
+
+        for i in 0..self.balls.len() {
+            if self.balls[i].collision(&ttf_context, &texture_creator, &mut self.bricks) == -1 {
+                self.index.push(i);  
+            }
+        }
+        
+        for i in self.index.iter().rev() {
+            self.balls.remove(*i);
+        }
+        self.index.clear();
+     
+        if self.balls.is_empty() { self.round = false; self.balls_in_round = 0; }
+    }
+
+    pub(crate) fn display_balls_and_bricks(&mut self, mut canvas: Canvas<Window>, ball_texture: &Texture<'_>) -> Canvas<Window> {
+        canvas.set_draw_color(Color::RGB(255, 255, 255));
+        
+        canvas = self.display_game(canvas);
+        
+        if !self.round {
+            canvas.draw_line(
+                (WINDOW_WIDTH as i32 / 2, WINDOW_HEIGHT as i32),
+                (
+                    (WINDOW_WIDTH as f64 / 2.0 + 200.0 * self.angle.cos()) as i32,
+                    (WINDOW_HEIGHT as f64 - 200.0 * self.angle.sin()) as i32,
+                ),
+            ).unwrap();
+        }
+
+        if self.round {
+            for i in 0..self.bricks.len() {
+                if self.bricks[i].life <= 0 {
+                    self.index.push(i);  
+                }
+            }
+
+            for i in self.index.iter().rev() {
+                self.bricks.remove(*i);
+            }
+            self.index.clear();
+
+            for ball in &(self.balls) {
+                canvas.copy(&ball_texture, None, ball.rect()).unwrap();
+            }
+        }
+
+        canvas
     }
 }
 
