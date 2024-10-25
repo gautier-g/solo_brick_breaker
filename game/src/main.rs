@@ -1,17 +1,17 @@
 mod game;
 mod utils;
 
+use game::Wave;
 use sdl2::mixer::{InitFlag, AUDIO_S16LSB, DEFAULT_CHANNELS};
 use sdl2::image::{self, LoadTexture};
 use sdl2::video::Window;
 use sdl2::keyboard::Keycode;
 use std::path::Path;
 use std::str::FromStr;
-use crate::utils::{WINDOW_WIDTH, WINDOW_HEIGHT, VITESSE, Angle};
+use crate::utils::{WINDOW_WIDTH, WINDOW_HEIGHT, Angle};
 use crate::game::Game;
 use sdl2::event::Event;
 use sdl2::Sdl;
-use std::thread;
 use std::time::Duration;
 
 fn main() {
@@ -41,7 +41,8 @@ fn main() {
         round: false,
         balls_in_round: 0,
         game_is_loaded: false,
-        game_is_lost: false
+        game_is_lost: false,
+        wave: Wave::new(1, false, &ttf_context, &texture_creator)
     };
 
     let frequency = 44_100;
@@ -50,7 +51,7 @@ fn main() {
     let chunk_size = 1_024;
     sdl2::mixer::open_audio(frequency, format, channels, chunk_size).unwrap();
     let _mixer_context = sdl2::mixer::init(InitFlag::MP3 | InitFlag::FLAC | InitFlag::MOD | InitFlag::OGG).unwrap();
-    sdl2::mixer::allocate_channels(2);
+    sdl2::mixer::allocate_channels(10);
 
     let home_music_chunk = sdl2::mixer::Chunk::from_file(Path::new("retro-game-arcade-236133.mp3")).unwrap();
     let background_ig_music_chunk = sdl2::mixer::Chunk::from_file(Path::new("background-music.mp3")).unwrap();
@@ -101,7 +102,7 @@ fn main() {
                 canvas = game.display_loss(canvas);
             }
             (true, false, _) => {
-                canvas = game.display_balls_and_bricks(canvas, &ball_texture);
+                canvas = game.display_balls_and_bricks(canvas, &ball_texture, frame);
             },
             (true, true, _) => {
                 canvas = game.display_pause(canvas);
@@ -110,7 +111,7 @@ fn main() {
                 canvas = game.display_menu(canvas);
             }
         }
-        frame = (frame + 1) % VITESSE;
+        frame = frame + 1;
 
         canvas.present();
 

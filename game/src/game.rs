@@ -3,6 +3,8 @@ extern crate rand;
 
 use ffmpeg_next::ffi::sqrtf;
 use sdl2::mixer::Chunk;
+use sdl2::surface::Surface;
+use sdl2::sys::ttf::TTF_HINTING_NONE;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::str::FromStr;
@@ -41,6 +43,55 @@ pub(crate) struct TexturedContent<'a> {
     pub(crate) dst: Option<Rect>
 }
 
+pub(crate) struct Wave <'a> {
+    pub(crate) wave_number: u32,
+    pub(crate) is_ignited: bool,
+    pub(crate) title_texture: Texture<'a>,
+    pub(crate) no_title_texture: Texture<'a>,
+}
+
+impl<'a> Wave <'a> {
+    pub fn new(wave_number: u32, is_ignited: bool, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>) -> Self {
+        let font = ttf_context.load_font(Path::new("fonts/Marlboro.ttf"), 128).unwrap();
+
+        let title_surface = font
+            .render(&format!("{}{}", "Wave n°", wave_number.to_string()))
+            .blended(Color::RGBA(180, 120, 120, 255))
+            .map_err(|e| e.to_string()).unwrap();
+
+        let title_texture = texture_creator
+            .create_texture_from_surface(&title_surface)
+            .map_err(|e| e.to_string()).unwrap();
+
+        let no_title_surface = font
+            .render(&format!("{}{}", "Wave n°", wave_number.to_string()))
+            .blended(Color::RGBA(0, 0, 0, 255))
+            .map_err(|e| e.to_string()).unwrap();
+
+        let no_title_texture = texture_creator
+            .create_texture_from_surface(&no_title_surface)
+            .map_err(|e| e.to_string()).unwrap();
+
+        Wave {
+            wave_number: wave_number,
+            is_ignited: is_ignited,
+            title_texture: title_texture,
+            no_title_texture: no_title_texture
+        }
+    }
+
+    pub fn display(&self, mut canvas: Canvas<Window>, frame: i32) ->Canvas<Window> {
+        if (frame % 60) <= 30 {
+            canvas.copy(&(self.title_texture), None, Some(rect!(50, 20, 250, 50))).unwrap();
+        }
+        else {
+            canvas.copy(&(self.no_title_texture), None, Some(rect!(50, 20, 250, 50))).unwrap();
+        }
+        
+        canvas
+    }
+}
+
 pub(crate) struct Game<'a> {
     pub(crate) started: bool,
     pub(crate) paused: bool,
@@ -53,7 +104,8 @@ pub(crate) struct Game<'a> {
     pub(crate) round: bool,
     pub(crate) balls_in_round: i32,
     pub(crate) game_is_loaded: bool,
-    pub(crate) game_is_lost: bool
+    pub(crate) game_is_lost: bool,
+    pub(crate) wave: Wave<'a>
 }
 
 impl<'a> Game<'a> {
@@ -403,13 +455,6 @@ impl<'a> Game<'a> {
 
         self.drawn.push(limit_bar);
 
-        self.angle = Angle::new();
-        self.balls = Vec::new();
-        self.index = Vec::new();
-
-        self.round = false;
-        self.balls_in_round = 0;
-
         let retry_button = DrawnContent {
             displayed_in_game: false,
             displayed_in_pause: false,
@@ -539,7 +584,7 @@ impl<'a> Game<'a> {
         can
     }
 
-    pub(crate) fn display_game(&self, mut can: Canvas<Window>) -> Canvas<Window> {
+    pub(crate) fn display_game(&self, mut can: Canvas<Window>, frame: i32) -> Canvas<Window> {
         can.set_draw_color(Color::RGB(0, 0, 0));
         can.clear();
 
@@ -561,6 +606,9 @@ impl<'a> Game<'a> {
             let _ = can.fill_rect(brick.rect);
             let _ = can.copy(&brick.texture,None,brick.rect);
         }
+
+        can = self.wave.display(can, frame);
+
         can
     }
 
@@ -627,10 +675,10 @@ impl<'a> Game<'a> {
         if self.balls.is_empty() && self.round == true { self.round = false; self.balls_in_round = 0; self.get_bricks_down(); self.game_is_lost = self.is_lost();} 
     }
 
-    pub(crate) fn display_balls_and_bricks(&mut self, mut canvas: Canvas<Window>, ball_texture: &Texture<'_>) -> Canvas<Window> {
+    pub(crate) fn display_balls_and_bricks(&mut self, mut canvas: Canvas<Window>, ball_texture: &Texture<'_>, frame: i32) -> Canvas<Window> {
         canvas.set_draw_color(Color::RGB(255, 255, 255));
         
-        canvas = self.display_game(canvas);
+        canvas = self.display_game(canvas, frame);
         
         if !self.round {
             canvas.draw_line(
@@ -645,7 +693,7 @@ impl<'a> Game<'a> {
         if self.round {
             for i in 0..self.bricks.len() {
                 if self.bricks[i].life <= 0 {
-                    self.index.push(i);  
+                    self.index.push(i);
                 }
             }
 
