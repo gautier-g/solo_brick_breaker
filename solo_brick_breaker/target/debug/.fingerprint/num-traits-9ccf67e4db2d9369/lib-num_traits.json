@@ -1,5 +1,0 @@
-<<<<<<< HEAD
-{"rustc":5620745326244611454,"features":"[\"default\", \"i128\", \"std\"]","declared_features":"[\"default\", \"i128\", \"libm\", \"std\"]","target":12477478524311379690,"profile":1740343547499479105,"path":10880591092508903636,"deps":[[10448766010662481490,"build_script_build",false,1546052868151716703]],"local":[{"CheckDepInfo":{"dep_info":"debug/.fingerprint/num-traits-9ccf67e4db2d9369/dep-lib-num_traits"}}],"rustflags":[],"metadata":14621636500951049976,"config":2202906307356721367,"compile_kind":0}
-=======
-{"rustc":5620745326244611454,"features":"[\"default\", \"i128\", \"std\"]","declared_features":"[\"default\", \"i128\", \"libm\", \"std\"]","target":12477478524311379690,"profile":1740343547499479105,"path":18015340109073476517,"deps":[[10448766010662481490,"build_script_build",false,14076834461236250683]],"local":[{"CheckDepInfo":{"dep_info":"debug/.fingerprint/num-traits-9ccf67e4db2d9369/dep-lib-num_traits"}}],"rustflags":[],"metadata":14621636500951049976,"config":2202906307356721367,"compile_kind":0}
->>>>>>> 1dc93830313a7ce8d4288a0475e29d2516d7534f

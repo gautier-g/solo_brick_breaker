@@ -1,5 +1,0 @@
-<<<<<<< HEAD
-{"rustc":5620745326244611454,"features":"","declared_features":"","target":0,"profile":0,"path":0,"deps":[[11815759462980212478,"build_script_build",false,13922991000265764933],[9265100310229353498,"build_script_build",false,10294147248355100824]],"local":[{"Precalculated":"0.37.0"}],"rustflags":[],"metadata":0,"config":0,"compile_kind":0}
-=======
-{"rustc":5620745326244611454,"features":"","declared_features":"","target":0,"profile":0,"path":0,"deps":[[11815759462980212478,"build_script_build",false,11892486709014509089],[9265100310229353498,"build_script_build",false,18443386234900465254]],"local":[{"Precalculated":"0.37.0"}],"rustflags":[],"metadata":0,"config":0,"compile_kind":0}
->>>>>>> 1dc93830313a7ce8d4288a0475e29d2516d7534f

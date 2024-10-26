@@ -1,5 +1,0 @@
-<<<<<<< HEAD
-{"rustc":5620745326244611454,"features":"[\"default\"]","declared_features":"[\"default\", \"no_std\", \"pkg-config\", \"use-pkgconfig\", \"use_mac_framework\"]","target":6423576478976419116,"profile":8861558584828204938,"path":822513197534390433,"deps":[],"local":[{"CheckDepInfo":{"dep_info":"debug/.fingerprint/sdl2-sys-0c6cd00560679170/dep-build-script-build-script-build"}}],"rustflags":[],"metadata":711566007802018925,"config":2202906307356721367,"compile_kind":0}
-=======
-{"rustc":5620745326244611454,"features":"[\"default\"]","declared_features":"[\"default\", \"no_std\", \"pkg-config\", \"use-pkgconfig\", \"use_mac_framework\"]","target":6423576478976419116,"profile":8861558584828204938,"path":11260295284258009815,"deps":[],"local":[{"CheckDepInfo":{"dep_info":"debug/.fingerprint/sdl2-sys-0c6cd00560679170/dep-build-script-build-script-build"}}],"rustflags":[],"metadata":711566007802018925,"config":2202906307356721367,"compile_kind":0}
->>>>>>> 1dc93830313a7ce8d4288a0475e29d2516d7534f

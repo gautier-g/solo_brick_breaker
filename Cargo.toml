@@ -1,0 +1,14 @@
+[package]
+name = "Brick_Breaker"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sdl2 = { version = "0.37", features = ["image","ttf","mixer"] }
+nalgebra = "0.29"
+rand = "0.8"
+ffmpeg-next = "4.3"
+
+[[bin]]
+name = "solo_brick_breaker"
+path = "game/src/main.rs"
