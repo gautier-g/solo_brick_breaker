@@ -1,8 +1,8 @@
 extern crate sdl2;
 
 use nalgebra::Point2;
-use sdl2::{pixels::Color, rect::Rect, render::TextureCreator,ttf::Sdl2TtfContext, video::WindowContext};
-use std::f64::consts::PI;
+use sdl2::{mixer::Chunk, pixels::Color, rect::Rect, render::TextureCreator, ttf::Sdl2TtfContext, video::WindowContext};
+use std::{f64::consts::PI, str::FromStr};
 use sdl2::render::Texture;
 
 pub const WINDOW_WIDTH: u32 = 600;
@@ -10,7 +10,7 @@ pub const WINDOW_HEIGHT: u32 = 700;
 pub const BALL_SIZE: u32 = 10;
 pub const BRICK_SIZE: u32 = 30;
 pub const N: i32 = 10;
-pub const VITESSE : i32= 12;
+pub const LEVEL_PATH : &str = "levels/test.txt";
 
 pub struct Angle (f64);
 
@@ -49,7 +49,7 @@ impl<'a> Ball {
         }
     }
 
-    pub fn collision(&mut self,ttf_context: &Sdl2TtfContext,texture_creator: &'a TextureCreator<WindowContext>, bricks: &mut Vec<Brick<'a>>) -> i32 {
+    pub fn collision(&mut self,ttf_context: &Sdl2TtfContext,texture_creator: &'a TextureCreator<WindowContext>, bricks: &mut Vec<Brick<'a>>, new_ball_chunk: &Chunk) -> i32 {
         if self.pos.y >= WINDOW_HEIGHT as f32 {
             return -1;
         }
@@ -75,10 +75,14 @@ impl<'a> Ball {
     
         for brick in bricks.iter_mut() {
             if tmp.has_intersection(brick.rect) {
-                brick.life -= 1;
+                sdl2::mixer::Channel(3).play(new_ball_chunk, 0).unwrap();
+
+                brick.life -= 5;
                 brick.set_texture(ttf_context, texture_creator);
     
-                if !brick.rect.x as f32 > self.pos.x && self.pos.x > brick.rect.x as f32 + brick.rect.width() as f32 {
+                let x_center_brick = brick.rect.center().x;
+
+                if ((self.vitesse.x > 0.0 && (x_center_brick > self.pos.x as i32)) || (self.vitesse.x < 0.0 && (x_center_brick < self.pos.x as i32))) && (brick.rect.y <= (self.pos.y as i32 + (BALL_SIZE/2) as i32) && (self.pos.y as i32 - (BALL_SIZE/2) as i32) <= brick.rect.y + brick.rect.height() as i32) {
                     self.vitesse.x = -self.vitesse.x; 
                 }
                 else {
@@ -108,25 +112,44 @@ pub struct Brick<'a> {
     pub rect : Rect,
     pub life : i32,
     pub texture : Texture<'a>,
+    pub brick_type : String
 }
 
 impl<'a> Brick<'a> {
-    pub fn new(i: i32, j: i32, life: i32, texture: Texture<'a>) -> Self {
+    pub fn new(i: i32, j: i32, life: i32, brick_type: String, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>) -> Self {
+        let font = ttf_context.load_font("fonts/Marlboro.ttf", 128).unwrap();
+
+        let life_text = life.to_string();
+
+        let brick_color = Color::RGB(30, 30,30);
+
+        let brick_surface = font
+            .render(&life_text)
+            .blended(brick_color)
+            .unwrap();
+
+        let texture = texture_creator
+            .create_texture_from_surface(&brick_surface)
+            .unwrap();     
+
         Brick {
             rect: Rect::new(i * (BRICK_SIZE+2) as i32 + 109, j * (BRICK_SIZE+2) as i32 + 151, BRICK_SIZE, BRICK_SIZE),
-            life,
-            texture,
+            life: life,
+            texture: texture,
+            brick_type: brick_type
         }
     }
 
     pub fn set_texture(&mut self,ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>) {
-
         let font = ttf_context.load_font("fonts/Marlboro.ttf", 128).unwrap();
 
         let life_text = self.life.to_string();
+
+        let brick_color = Color::RGB(30, 30,30);
+        
         let brick_surface = font
             .render(&life_text)
-            .blended(Color::RGBA(0, 255, 0, 255))
+            .blended(brick_color)
             .unwrap();
 
         self.texture = texture_creator

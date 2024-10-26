@@ -6,6 +6,7 @@ use sdl2::mixer::{InitFlag, AUDIO_S16LSB, DEFAULT_CHANNELS};
 use sdl2::image::{self, LoadTexture};
 use sdl2::video::Window;
 use sdl2::keyboard::Keycode;
+use utils::N;
 use std::path::Path;
 use std::str::FromStr;
 use crate::utils::{WINDOW_WIDTH, WINDOW_HEIGHT, Angle};
@@ -34,7 +35,6 @@ fn main() {
         paused: false,
         drawn: Vec::new(),
         textured: Vec::new(),
-        bricks: Vec::new(),
         angle: Angle::new(),
         balls: Vec::new(),
         index: Vec::new(),
@@ -51,12 +51,19 @@ fn main() {
     let chunk_size = 1_024;
     sdl2::mixer::open_audio(frequency, format, channels, chunk_size).unwrap();
     let _mixer_context = sdl2::mixer::init(InitFlag::MP3 | InitFlag::FLAC | InitFlag::MOD | InitFlag::OGG).unwrap();
-    sdl2::mixer::allocate_channels(10);
+    sdl2::mixer::allocate_channels(6);
 
     let home_music_chunk = sdl2::mixer::Chunk::from_file(Path::new("retro-game-arcade-236133.mp3")).unwrap();
     let background_ig_music_chunk = sdl2::mixer::Chunk::from_file(Path::new("background-music.mp3")).unwrap();
+    let broken_brick_chunk = sdl2::mixer::Chunk::from_file(Path::new("broken_brick.mp3")).unwrap();
+    let new_ball_chunk = sdl2::mixer::Chunk::from_file(Path::new("new_ball.mp3")).unwrap();
+    let bricks_down_chunk = sdl2::mixer::Chunk::from_file(Path::new("bricks_down.mp3")).unwrap();
+    let new_wave_chunk = sdl2::mixer::Chunk::from_file(Path::new("new_wave.mp3")).unwrap();
     sdl2::mixer::Channel(0).set_volume(60);
     sdl2::mixer::Channel(1).set_volume(30);
+    sdl2::mixer::Channel(2).set_volume(80);
+    sdl2::mixer::Channel(3).set_volume(60);
+    sdl2::mixer::Channel(4).set_volume(50);
     sdl2::mixer::Channel(0).play(&home_music_chunk, 2).unwrap();
 
     game.load_content(&ttf_context, &texture_creator);
@@ -90,11 +97,11 @@ fn main() {
         }
 
         if !game.game_is_loaded {
-            game.load_bricks(&ttf_context, &texture_creator, String::from_str("levels/test.txt").unwrap());
+            game.load_bricks(&ttf_context, &texture_creator);
         }
 
         if !game.paused {
-            game.update_balls_state(frame, &ttf_context, &texture_creator);
+            game.update_balls_state(frame, &ttf_context, &texture_creator, &new_ball_chunk, &bricks_down_chunk, &new_wave_chunk);
         }
 
         match (game.started, game.paused, game.game_is_lost) {
@@ -102,7 +109,7 @@ fn main() {
                 canvas = game.display_loss(canvas);
             }
             (true, false, _) => {
-                canvas = game.display_balls_and_bricks(canvas, &ball_texture, frame);
+                canvas = game.display_balls_and_bricks(canvas, &ball_texture, frame, &broken_brick_chunk);
             },
             (true, true, _) => {
                 canvas = game.display_pause(canvas);

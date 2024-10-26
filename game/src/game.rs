@@ -3,18 +3,17 @@ extern crate rand;
 
 use ffmpeg_next::ffi::sqrtf;
 use sdl2::mixer::Chunk;
-use sdl2::surface::Surface;
-use sdl2::sys::ttf::TTF_HINTING_NONE;
 use std::fs::File;
-use std::io::{self, BufRead};
+use std::io::{self, BufRead, Write};
 use std::str::FromStr;
-use crate::utils::{Angle, Ball, BALL_SIZE, BRICK_SIZE, N, WINDOW_HEIGHT, WINDOW_WIDTH};
+use crate::utils::*;
 use sdl2::rect::Rect;
 use sdl2::pixels::Color;
 use sdl2::render::{Canvas, Texture, TextureCreator, TextureQuery};
 use sdl2::ttf::Sdl2TtfContext;
 use sdl2::video::{Window, WindowContext};
 use std::path::Path;
+use rand::Rng;
 
 use crate::utils::Brick;
 
@@ -48,6 +47,7 @@ pub(crate) struct Wave <'a> {
     pub(crate) is_ignited: bool,
     pub(crate) title_texture: Texture<'a>,
     pub(crate) no_title_texture: Texture<'a>,
+    pub(crate) bricks: Vec<Brick<'a>>
 }
 
 impl<'a> Wave <'a> {
@@ -71,13 +71,38 @@ impl<'a> Wave <'a> {
         let no_title_texture = texture_creator
             .create_texture_from_surface(&no_title_surface)
             .map_err(|e| e.to_string()).unwrap();
-
+        
         Wave {
             wave_number: wave_number,
             is_ignited: is_ignited,
             title_texture: title_texture,
-            no_title_texture: no_title_texture
+            no_title_texture: no_title_texture,
+            bricks: Vec::new()
         }
+    }
+
+    pub fn init_file(&self) {
+        let mut file = File::create(String::from_str(LEVEL_PATH).unwrap()).unwrap();
+        let mut string_level = "".to_string();
+
+        for i in 0..12 {
+            if i <= self.wave_number {
+                for _ in 0..12 {
+                    let mut rng = rand::thread_rng();
+                    let mut life = 0;
+                    if rng.gen_range(0..10) <= 3 {
+                            life = 100;
+                    }
+                    string_level.push_str(&life.to_string());
+                    string_level.push_str(" ");
+                }
+            }
+            else {
+                string_level.push_str("0 0 0 0 0 0 0 0 0 0 0 0 ");
+            }
+            string_level.push_str("\n");
+        }
+        file.write_all(string_level.as_bytes()).unwrap();
     }
 
     pub fn display(&self, mut canvas: Canvas<Window>, frame: i32) ->Canvas<Window> {
@@ -90,31 +115,11 @@ impl<'a> Wave <'a> {
         
         canvas
     }
-}
 
-pub(crate) struct Game<'a> {
-    pub(crate) started: bool,
-    pub(crate) paused: bool,
-    pub(crate) drawn: Vec<DrawnContent>,
-    pub(crate) textured: Vec<TexturedContent<'a>>,
-    pub(crate) bricks: Vec<Brick<'a>>,
-    pub(crate) angle: Angle,
-    pub(crate) balls: Vec<Ball>,
-    pub(crate) index: Vec<usize>,
-    pub(crate) round: bool,
-    pub(crate) balls_in_round: i32,
-    pub(crate) game_is_loaded: bool,
-    pub(crate) game_is_lost: bool,
-    pub(crate) wave: Wave<'a>
-}
+    pub fn load_bricks(&mut self,ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>) {
+        self.init_file();
 
-impl<'a> Game<'a> {
-
-    pub fn load_bricks(&mut self,ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>,level : String) {
-
-        let font = ttf_context.load_font(Path::new("fonts/Marlboro.ttf"), 128).unwrap();
-
-        let file = File::open(level).unwrap();
+        let file = File::open(String::from_str(LEVEL_PATH).unwrap()).unwrap();
         let reader = io::BufReader::new(file);
     
         let mut bricks:Vec<Brick<'a>> = Vec::new();
@@ -127,18 +132,8 @@ impl<'a> Game<'a> {
                     for i in 0..tmp.len() {
                         match tmp[i].parse::<u32>() {
                             Ok(0) => {},
-                            Ok(nombre) => {
-                                let brick_surface = font
-                                    .render(tmp[i].to_string().as_str())
-                                    .blended(Color::RGBA(0, 255, 0, 255))
-                                    .map_err(|e| e.to_string()).unwrap();
-
-                                let brick_texture = texture_creator
-                                    .create_texture_from_surface(&brick_surface)
-                                    .map_err(|e| e.to_string()).unwrap();
-
-                                                             
-                                bricks.push(Brick::new(i as i32,j as i32 , nombre as i32,brick_texture));
+                            Ok(nombre) => {             
+                                bricks.push(Brick::new(i as i32,j as i32 , nombre as i32, String::from_str("normal").unwrap(), ttf_context, &texture_creator));
                             },
                             _ => {}, 
                         }
@@ -149,6 +144,28 @@ impl<'a> Game<'a> {
             j = j + 1;
         }
         self.bricks = bricks;
+    }
+}
+
+pub(crate) struct Game<'a> {
+    pub(crate) started: bool,
+    pub(crate) paused: bool,
+    pub(crate) drawn: Vec<DrawnContent>,
+    pub(crate) textured: Vec<TexturedContent<'a>>,
+    pub(crate) angle: Angle,
+    pub(crate) balls: Vec<Ball>,
+    pub(crate) index: Vec<usize>,
+    pub(crate) round: bool,
+    pub(crate) balls_in_round: i32,
+    pub(crate) game_is_loaded: bool,
+    pub(crate) game_is_lost: bool,
+    pub(crate) wave: Wave<'a>
+}
+
+impl<'a> Game<'a> {
+
+    pub fn load_bricks(&mut self,ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>) {
+        self.wave.load_bricks(ttf_context, texture_creator);
         self.game_is_loaded = true;
 
     }
@@ -502,29 +519,9 @@ impl<'a> Game<'a> {
             dst: Some(rect!(225, 200, 150, 50))
         };
 
-        let loss_subtitle_surface = font
-            .render("Best score: ")
-            .blended(Color::RGBA(255, 255, 255, 255))
-            .map_err(|e| e.to_string()).unwrap();
-
-        let loss_subtitle_texture = texture_creator
-            .create_texture_from_surface(&loss_subtitle_surface)
-            .map_err(|e| e.to_string()).unwrap();
-
-        let loss_subtitle_textured_content = TexturedContent {
-            displayed_in_game: false,
-            displayed_in_pause: false,
-            displayed_at_loss: true,
-            name: None,
-            texture: loss_subtitle_texture,
-            src: None,
-            dst: Some(rect!(225, 300, 150, 50))
-        };
-
         self.drawn.push(retry_button);
         self.textured.push(retry_textured_content);
         self.textured.push(loss_title_textured_content);
-        self.textured.push(loss_subtitle_textured_content);
 
     }
 
@@ -601,8 +598,22 @@ impl<'a> Game<'a> {
             }
         }
 
-        for brick in self.bricks.iter() {
-            can.set_draw_color(Color::RGB(255,255,255));
+        for brick in self.wave.bricks.iter() {
+            let mut brick_color = Color::RGB(255,255,255);
+
+            if brick.brick_type.eq(&String::from_str("bomb").unwrap()) {
+                brick_color = Color::RGB(200, 50, 50);
+            }
+            else if brick.brick_type.eq(&String::from_str("more_balls").unwrap()) {
+                brick_color = Color::RGB(50, 200, 50);
+            }
+            else if brick.brick_type.eq(&String::from_str("more_damage").unwrap()) {
+                brick_color = Color::RGB(50, 50, 200);
+            }
+            else if brick.brick_type.eq(&String::from_str("bigger_balls").unwrap()) {
+                brick_color = Color::RGB(200, 200, 200);
+            };
+            can.set_draw_color(brick_color);
             let _ = can.fill_rect(brick.rect);
             let _ = can.copy(&brick.texture,None,brick.rect);
         }
@@ -650,7 +661,7 @@ impl<'a> Game<'a> {
         }
     }
 
-    pub(crate) fn update_balls_state(&mut self, frame: i32, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>) {
+    pub(crate) fn update_balls_state(&mut self, frame: i32, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>, new_ball_chunk: &Chunk, bricks_down_chunk: &Chunk, new_wave_chunk: &Chunk) {
         if (self.round && self.balls_in_round < N && frame % 2 == 0) || (self.round && self.balls_in_round == 0) {
             self.balls.push(Ball::new(
                 (WINDOW_WIDTH - (BALL_SIZE as u32)) as f32 / 2.0,
@@ -659,11 +670,12 @@ impl<'a> Game<'a> {
                 -(self.angle.sin() as f32)*(unsafe { sqrtf((WINDOW_WIDTH/10) as f32) }),
             ));
             self.balls_in_round += 1;
+            sdl2::mixer::Channel(3).play(new_ball_chunk, 0).unwrap();
         }        
 
         for i in 0..self.balls.len() {
-            if self.balls[i].collision(&ttf_context, &texture_creator, &mut self.bricks) == -1 {
-                self.index.push(i);  
+            if self.balls[i].collision(&ttf_context, &texture_creator, &mut self.wave.bricks, new_ball_chunk) == -1 {
+                self.index.push(i);
             }
         }
         
@@ -672,10 +684,35 @@ impl<'a> Game<'a> {
         }
         self.index.clear();
      
-        if self.balls.is_empty() && self.round == true { self.round = false; self.balls_in_round = 0; self.get_bricks_down(); self.game_is_lost = self.is_lost();} 
+        if self.balls.is_empty() && self.round == true {
+            self.round = false;
+            self.balls_in_round = 0;
+            if self.wave.bricks.is_empty() {
+                self.wave.wave_number += 1;
+
+                let font = ttf_context.load_font(Path::new("fonts/Marlboro.ttf"), 128).unwrap();
+                let title_surface2 = font
+                    .render(&format!("{}{}", "Wave n°", self.wave.wave_number.to_string()))
+                    .blended(Color::RGBA(180, 120, 120, 255))
+                    .map_err(|e| e.to_string()).unwrap();
+
+                let title_texture2 = texture_creator
+                    .create_texture_from_surface(&title_surface2)
+                    .map_err(|e| e.to_string()).unwrap();
+                self.wave.title_texture = title_texture2;
+                
+                self.wave.load_bricks(ttf_context, texture_creator);
+                sdl2::mixer::Channel(5).play(new_wave_chunk, 0).unwrap();
+            }
+            else {
+                self.get_bricks_down();
+                self.game_is_lost = self.is_lost(ttf_context, &texture_creator);
+                sdl2::mixer::Channel(4).play(bricks_down_chunk, 0).unwrap();
+            }
+        } 
     }
 
-    pub(crate) fn display_balls_and_bricks(&mut self, mut canvas: Canvas<Window>, ball_texture: &Texture<'_>, frame: i32) -> Canvas<Window> {
+    pub(crate) fn display_balls_and_bricks(&mut self, mut canvas: Canvas<Window>, ball_texture: &Texture<'_>, frame: i32, broken_brick_chunk: &Chunk) -> Canvas<Window> {
         canvas.set_draw_color(Color::RGB(255, 255, 255));
         
         canvas = self.display_game(canvas, frame);
@@ -691,14 +728,15 @@ impl<'a> Game<'a> {
         }
 
         if self.round {
-            for i in 0..self.bricks.len() {
-                if self.bricks[i].life <= 0 {
+            for i in 0..self.wave.bricks.len() {
+                if self.wave.bricks[i].life <= 0 {
                     self.index.push(i);
                 }
             }
 
             for i in self.index.iter().rev() {
-                self.bricks.remove(*i);
+                self.wave.bricks.remove(*i);
+                sdl2::mixer::Channel(2).play(broken_brick_chunk, 0).unwrap();
             }
             self.index.clear();
 
@@ -711,16 +749,57 @@ impl<'a> Game<'a> {
     }
 
     pub(crate) fn get_bricks_down(&mut self) {
-        for brick in self.bricks.iter_mut() {
+        for brick in self.wave.bricks.iter_mut() {
             brick.rect.y += BRICK_SIZE as i32;
         }
     }
 
-    pub(crate) fn is_lost(&mut self) -> bool {
-        for brick in self.bricks.iter() {
+    pub(crate) fn is_lost(&mut self, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>) -> bool {
+        for brick in self.wave.bricks.iter() {
             if brick.rect.y + brick.rect.height() as i32 > 585 {
                 self.started = false;
                 self.game_is_lost = true;
+                for score in 0..self.textured.len() {
+                    if self.textured[score].name.eq(&Some(String::from_str("best_score").unwrap())) {
+                        self.textured.remove(score);
+                    }
+                }
+
+                let font = ttf_context.load_font(Path::new("fonts/Marlboro.ttf"), 128).unwrap();
+
+                let loss_subtitle_surface = font
+                    .render(&format!("{}{}", "Best score: ", self.wave.wave_number.to_string()))
+                    .blended(Color::RGBA(255, 255, 255, 255))
+                    .map_err(|e| e.to_string()).unwrap();
+
+                let loss_subtitle_texture = texture_creator
+                    .create_texture_from_surface(&loss_subtitle_surface)
+                    .map_err(|e| e.to_string()).unwrap();
+
+                let loss_subtitle_textured_content = TexturedContent {
+                    displayed_in_game: false,
+                    displayed_in_pause: false,
+                    displayed_at_loss: true,
+                    name: Some(String::from_str("best_score").unwrap()),
+                    texture: loss_subtitle_texture,
+                    src: None,
+                    dst: Some(rect!(225, 300, 150, 40))
+                };
+
+                self.textured.push(loss_subtitle_textured_content);
+
+
+                self.wave.wave_number = 1;
+
+                let title_surface2 = font
+                    .render(&format!("{}{}", "Wave n°", self.wave.wave_number.to_string()))
+                    .blended(Color::RGBA(180, 120, 120, 255))
+                    .map_err(|e| e.to_string()).unwrap();
+
+                let title_texture2 = texture_creator
+                    .create_texture_from_surface(&title_surface2)
+                    .map_err(|e| e.to_string()).unwrap();
+                self.wave.title_texture = title_texture2;
                 sdl2::mixer::Channel(1).halt();
                 print!("yes!");
                 return true;
