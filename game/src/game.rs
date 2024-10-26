@@ -6,6 +6,7 @@ use sdl2::mixer::Chunk;
 use std::fs::File;
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
+use std::time::{Duration, Instant};
 use crate::utils::*;
 use sdl2::rect::Rect;
 use sdl2::pixels::Color;
@@ -44,14 +45,13 @@ pub(crate) struct TexturedContent<'a> {
 
 pub(crate) struct Wave <'a> {
     pub(crate) wave_number: u32,
-    pub(crate) is_ignited: bool,
     pub(crate) title_texture: Texture<'a>,
     pub(crate) no_title_texture: Texture<'a>,
     pub(crate) bricks: Vec<Brick<'a>>
 }
 
 impl<'a> Wave <'a> {
-    pub fn new(wave_number: u32, is_ignited: bool, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>) -> Self {
+    pub fn new(wave_number: u32, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>) -> Self {
         let font = ttf_context.load_font(Path::new("fonts/Marlboro.ttf"), 128).unwrap();
 
         let title_surface = font
@@ -74,7 +74,6 @@ impl<'a> Wave <'a> {
         
         Wave {
             wave_number: wave_number,
-            is_ignited: is_ignited,
             title_texture: title_texture,
             no_title_texture: no_title_texture,
             bricks: Vec::new()
@@ -90,7 +89,7 @@ impl<'a> Wave <'a> {
                 for _ in 0..12 {
                     let mut rng = rand::thread_rng();
                     let mut life = 0;
-                    if rng.gen_range(0..10) <= 3 {
+                    if rng.gen_range(1.0..10.0) <= 4.0 {
                             life = 100;
                     }
                     string_level.push_str(&life.to_string());
@@ -133,7 +132,25 @@ impl<'a> Wave <'a> {
                         match tmp[i].parse::<u32>() {
                             Ok(0) => {},
                             Ok(nombre) => {             
-                                bricks.push(Brick::new(i as i32,j as i32 , nombre as i32, String::from_str("normal").unwrap(), ttf_context, &texture_creator));
+                                let mut rng = rand::thread_rng();
+                                let mut brick_type = "normal";
+                                if rng.gen_range(1.0..10.0) <= 1.5 {
+                                        let random_type_number = rng.gen_range(1..12);
+
+                                        if random_type_number <= 3 {
+                                            brick_type = "bomb";
+                                        }
+                                        else if random_type_number <= 6 {
+                                            brick_type = "more_balls";
+                                        }
+                                        else if random_type_number <= 9 {
+                                            brick_type = "more_damage";
+                                        }
+                                        else {
+                                            brick_type = "bigger_balls";
+                                        }
+                                }
+                                bricks.push(Brick::new(i as i32,j as i32 , nombre as i32, String::from_str(&brick_type).unwrap(), ttf_context, &texture_creator));
                             },
                             _ => {}, 
                         }
@@ -159,10 +176,82 @@ pub(crate) struct Game<'a> {
     pub(crate) balls_in_round: i32,
     pub(crate) game_is_loaded: bool,
     pub(crate) game_is_lost: bool,
-    pub(crate) wave: Wave<'a>
+    pub(crate) wave: Wave<'a>,
+    pub(crate) max_balls: i32,
+    pub(crate) ball_damage: i32,
+    pub(crate) ball_size: u32,
+    pub(crate) display_bonus: bool,
+    pub(crate) bonus_displayed: Texture<'a>,
+    pub(crate) bonus_display_start_time: Instant,
+    pub(crate) damage_texture: Texture<'a>,
+    pub(crate) balls_texture: Texture<'a>,
+    pub(crate) size_texture: Texture<'a>
 }
 
 impl<'a> Game<'a> {
+    pub fn new(ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>) -> Self {
+        let font = ttf_context.load_font(Path::new("fonts/Marlboro.ttf"), 128).unwrap();
+        let bonus_surface = font
+            .render("More bullets!")
+            .blended(Color::RGBA(255, 255, 255, 255))
+            .map_err(|e| e.to_string()).unwrap();
+
+        let bonus_texture = texture_creator
+            .create_texture_from_surface(&bonus_surface)
+            .map_err(|e| e.to_string()).unwrap();
+
+        let damage_surface = font
+            .render("Dmg: 5")
+            .blended(Color::RGBA(200, 200, 200, 255))
+            .map_err(|e| e.to_string()).unwrap();
+
+        let damage_texture = texture_creator
+            .create_texture_from_surface(&damage_surface)
+            .map_err(|e| e.to_string()).unwrap();
+
+        let balls_surface = font
+            .render("Balls: 10")
+            .blended(Color::RGBA(200, 200, 200, 255))
+            .map_err(|e| e.to_string()).unwrap();
+
+        let balls_texture = texture_creator
+            .create_texture_from_surface(&balls_surface)
+            .map_err(|e| e.to_string()).unwrap();
+
+        let size_surface = font
+            .render("Size: 10px")
+            .blended(Color::RGBA(200, 200, 200, 255))
+            .map_err(|e| e.to_string()).unwrap();
+
+        let size_texture = texture_creator
+            .create_texture_from_surface(&size_surface)
+            .map_err(|e| e.to_string()).unwrap();
+
+        
+        Game {
+            started: false,
+            paused: false,
+            drawn: Vec::new(),
+            textured: Vec::new(),
+            angle: Angle::new(),
+            balls: Vec::new(),
+            index: Vec::new(),
+            round: false,
+            balls_in_round: 0,
+            game_is_loaded: false,
+            game_is_lost: false,
+            wave: Wave::new(1, &ttf_context, &texture_creator),
+            max_balls: 10,
+            ball_damage: 5,
+            ball_size: 10,
+            display_bonus: false,
+            bonus_displayed: bonus_texture,
+            bonus_display_start_time: Instant::now(),
+            damage_texture: damage_texture,
+            balls_texture: balls_texture,
+            size_texture: size_texture
+        }
+    }
 
     pub fn load_bricks(&mut self,ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>) {
         self.wave.load_bricks(ttf_context, texture_creator);
@@ -581,7 +670,7 @@ impl<'a> Game<'a> {
         can
     }
 
-    pub(crate) fn display_game(&self, mut can: Canvas<Window>, frame: i32) -> Canvas<Window> {
+    pub(crate) fn display_game(&self, mut can: Canvas<Window>, frame: i32, ) -> Canvas<Window> {
         can.set_draw_color(Color::RGB(0, 0, 0));
         can.clear();
 
@@ -598,6 +687,10 @@ impl<'a> Game<'a> {
             }
         }
 
+        can.copy(&self.damage_texture, None, rect!(0, 500, 100, 35)).unwrap();
+        can.copy(&self.balls_texture, None, rect!(0, 540, 100, 35)).unwrap();
+        can.copy(&self.size_texture, None, rect!(0, 580, 100, 35)).unwrap();
+
         for brick in self.wave.bricks.iter() {
             let mut brick_color = Color::RGB(255,255,255);
 
@@ -611,7 +704,7 @@ impl<'a> Game<'a> {
                 brick_color = Color::RGB(50, 50, 200);
             }
             else if brick.brick_type.eq(&String::from_str("bigger_balls").unwrap()) {
-                brick_color = Color::RGB(200, 200, 200);
+                brick_color = Color::RGB(150, 150, 150);
             };
             can.set_draw_color(brick_color);
             let _ = can.fill_rect(brick.rect);
@@ -619,6 +712,10 @@ impl<'a> Game<'a> {
         }
 
         can = self.wave.display(can, frame);
+
+        if self.display_bonus {
+            can.copy(&self.bonus_displayed, None, Rect::new(350, 600, 200, 40)).unwrap();
+        }
 
         can
     }
@@ -662,10 +759,10 @@ impl<'a> Game<'a> {
     }
 
     pub(crate) fn update_balls_state(&mut self, frame: i32, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>, new_ball_chunk: &Chunk, bricks_down_chunk: &Chunk, new_wave_chunk: &Chunk) {
-        if (self.round && self.balls_in_round < N && frame % 2 == 0) || (self.round && self.balls_in_round == 0) {
+        if (self.round && self.balls_in_round < self.max_balls && frame % 2 == 0) || (self.round && self.balls_in_round == 0) {
             self.balls.push(Ball::new(
-                (WINDOW_WIDTH - (BALL_SIZE as u32)) as f32 / 2.0,
-                (WINDOW_HEIGHT - (BALL_SIZE as u32)) as f32,
+                (WINDOW_WIDTH - (self.ball_size as u32)) as f32 / 2.0,
+                (WINDOW_HEIGHT - (self.ball_size as u32)) as f32,
                 (self.angle.cos() as f32)*(unsafe { sqrtf((WINDOW_HEIGHT/10) as f32) }),
                 -(self.angle.sin() as f32)*(unsafe { sqrtf((WINDOW_WIDTH/10) as f32) }),
             ));
@@ -674,7 +771,7 @@ impl<'a> Game<'a> {
         }        
 
         for i in 0..self.balls.len() {
-            if self.balls[i].collision(&ttf_context, &texture_creator, &mut self.wave.bricks, new_ball_chunk) == -1 {
+            if self.balls[i].collision(&ttf_context, &texture_creator, &mut self.wave.bricks, new_ball_chunk, self.ball_damage, self.ball_size) == -1 {
                 self.index.push(i);
             }
         }
@@ -710,9 +807,13 @@ impl<'a> Game<'a> {
                 sdl2::mixer::Channel(4).play(bricks_down_chunk, 0).unwrap();
             }
         } 
+
+        if self.bonus_display_start_time.elapsed() > Duration::from_secs(2) {
+            self.display_bonus = false;
+        }
     }
 
-    pub(crate) fn display_balls_and_bricks(&mut self, mut canvas: Canvas<Window>, ball_texture: &Texture<'_>, frame: i32, broken_brick_chunk: &Chunk) -> Canvas<Window> {
+    pub(crate) fn display_balls_and_bricks(&mut self, mut canvas: Canvas<Window>, ball_texture: &Texture<'_>, frame: i32, ttf_context: &Sdl2TtfContext, texture_creator: &'a TextureCreator<WindowContext>, broken_brick_chunk: &Chunk, more_bullets_chunk: &Chunk, more_damage_chunk: &Chunk, bigger_balls_chunk: &Chunk, brick_exploding_chunk: &Chunk) -> Canvas<Window> {
         canvas.set_draw_color(Color::RGB(255, 255, 255));
         
         canvas = self.display_game(canvas, frame);
@@ -734,14 +835,132 @@ impl<'a> Game<'a> {
                 }
             }
 
-            for i in self.index.iter().rev() {
+            for i in self.index.iter_mut().rev() {
+                let mut bricks_to_remove: Vec<Rect> = Vec::new();
+
+                let brick = self.wave.bricks.get(*i).unwrap();
+
+                if brick.brick_type.eq(&String::from_str("bomb").unwrap()) {
+                    self.bonus_display_start_time = Instant::now();
+                    self.display_bonus = true;
+
+                    let font = ttf_context.load_font(Path::new("fonts/Marlboro.ttf"), 128).unwrap();
+                    let bonus_surface = font
+                        .render("Boom!")
+                        .blended(Color::RGBA(255, 255, 255, 255))
+                        .map_err(|e| e.to_string()).unwrap();
+
+                    let bonus_texture = texture_creator
+                        .create_texture_from_surface(&bonus_surface)
+                        .map_err(|e| e.to_string()).unwrap();
+                    self.bonus_displayed = bonus_texture;
+
+                    for j in 0..self.wave.bricks.len() {
+                        let distance = self.wave.bricks[j].euclidian_distance(brick);
+                        if !(self.wave.bricks[j].rect.eq(&brick.rect)) && distance <= (BRICK_SIZE * 3) as i32 {
+                            bricks_to_remove.push(self.wave.bricks[j].rect.clone());
+                        }
+                    }
+                    sdl2::mixer::Channel(7).play(brick_exploding_chunk, 0).unwrap();
+                }
+                else if brick.brick_type.eq(&String::from_str("more_balls").unwrap()) {
+                    self.bonus_display_start_time = Instant::now();
+                    self.display_bonus = true;
+
+                    let font = ttf_context.load_font(Path::new("fonts/Marlboro.ttf"), 128).unwrap();
+                    let bonus_surface = font
+                        .render("More bullets!")
+                        .blended(Color::RGBA(255, 255, 255, 255))
+                        .map_err(|e| e.to_string()).unwrap();
+
+                    let bonus_texture = texture_creator
+                        .create_texture_from_surface(&bonus_surface)
+                        .map_err(|e| e.to_string()).unwrap();
+                    self.bonus_displayed = bonus_texture;
+
+                    self.max_balls += 3;
+
+                    let balls_surface = font
+                        .render(&format!("{}{}", "Balls: ", self.max_balls.to_string()))
+                        .blended(Color::RGBA(200, 200, 200, 255))
+                        .map_err(|e| e.to_string()).unwrap();
+
+                    let balls_texture = texture_creator
+                        .create_texture_from_surface(&balls_surface)
+                        .map_err(|e| e.to_string()).unwrap();
+                    
+                    self.balls_texture = balls_texture;
+
+                    sdl2::mixer::Channel(7).play(more_bullets_chunk, 0).unwrap();
+                }
+                else if brick.brick_type.eq(&String::from_str("more_damage").unwrap()) {
+                    self.bonus_display_start_time = Instant::now();
+                    self.display_bonus = true;
+                    
+                    let font = ttf_context.load_font(Path::new("fonts/Marlboro.ttf"), 128).unwrap();
+                    let bonus_surface = font
+                        .render("More damage!")
+                        .blended(Color::RGBA(255, 255, 255, 255))
+                        .map_err(|e| e.to_string()).unwrap();
+
+                    let bonus_texture = texture_creator
+                        .create_texture_from_surface(&bonus_surface)
+                        .map_err(|e| e.to_string()).unwrap();
+                    self.bonus_displayed = bonus_texture;
+
+                    self.ball_damage += 3;
+
+                    let damage_surface = font
+                        .render(&format!("{}{}", "Dmg: ", self.ball_damage.to_string()))
+                        .blended(Color::RGBA(200, 200, 200, 255))
+                        .map_err(|e| e.to_string()).unwrap();
+
+                    let damage_texture = texture_creator
+                        .create_texture_from_surface(&damage_surface)
+                        .map_err(|e| e.to_string()).unwrap();
+
+                    self.damage_texture = damage_texture;
+
+                    sdl2::mixer::Channel(8).play(more_damage_chunk, 0).unwrap();
+                }
+                else if brick.brick_type.eq(&String::from_str("bigger_balls").unwrap()) {
+                    self.bonus_display_start_time = Instant::now();
+                    self.display_bonus = true;
+                    
+                    let font = ttf_context.load_font(Path::new("fonts/Marlboro.ttf"), 128).unwrap();
+                    let bonus_surface = font
+                        .render("Bigger balls!")
+                        .blended(Color::RGBA(255, 255, 255, 255))
+                        .map_err(|e| e.to_string()).unwrap();
+
+                    let bonus_texture = texture_creator
+                        .create_texture_from_surface(&bonus_surface)
+                        .map_err(|e| e.to_string()).unwrap();
+                    self.bonus_displayed = bonus_texture;
+
+                    self.ball_size += 3;
+
+                    let size_surface = font
+                        .render(&format!("{}{}{}", "Size: ", self.ball_size.to_string(), "px"))
+                        .blended(Color::RGBA(200, 200, 200, 255))
+                        .map_err(|e| e.to_string()).unwrap();
+
+                    let size_texture = texture_creator
+                        .create_texture_from_surface(&size_surface)
+                        .map_err(|e| e.to_string()).unwrap();
+
+                    self.size_texture = size_texture;
+
+                    sdl2::mixer::Channel(9).play(bigger_balls_chunk, 0).unwrap();
+                };
                 self.wave.bricks.remove(*i);
+                self.wave.bricks.retain(|brick| !bricks_to_remove.contains(&brick.rect));
                 sdl2::mixer::Channel(2).play(broken_brick_chunk, 0).unwrap();
             }
             self.index.clear();
 
             for ball in &(self.balls) {
-                canvas.copy(&ball_texture, None, ball.rect()).unwrap();
+                canvas.copy(&ball_texture, None, ball.rect(self.ball_size)).unwrap();
             }
         }
 
@@ -759,6 +978,9 @@ impl<'a> Game<'a> {
             if brick.rect.y + brick.rect.height() as i32 > 585 {
                 self.started = false;
                 self.game_is_lost = true;
+                self.ball_size = 10;
+                self.max_balls = 10;
+                self.ball_damage = 5;
                 for score in 0..self.textured.len() {
                     if self.textured[score].name.eq(&Some(String::from_str("best_score").unwrap())) {
                         self.textured.remove(score);
@@ -801,11 +1023,11 @@ impl<'a> Game<'a> {
                     .map_err(|e| e.to_string()).unwrap();
                 self.wave.title_texture = title_texture2;
                 sdl2::mixer::Channel(1).halt();
-                print!("yes!");
+                
                 return true;
             }
         }
-        print!("no!");
+        
         return false;
     }
 }
